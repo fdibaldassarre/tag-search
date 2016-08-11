@@ -44,7 +44,7 @@ class PropertiesManager():
       etype = self.interface.layout.getFieldType(name)
       if etype == UI_ENTRY:
         entry = self.interface._custom_entries[name]
-        res = entry.get_text()
+        res = entry.get_text().strip()
         if res == '' and not field.getAllowsEmpty():
           res = self.interface._getFieldDefault(field)
         return res
@@ -58,7 +58,7 @@ class PropertiesManager():
       else:
         return None
     elif name == '_filename_entry':
-      return self.interface.filename_entry.get_text()
+      return self.interface.filename_entry.get_text().strip()
     elif name == '_filename':
       return self.interface.mfile.getName()
     elif name == '_mime':
@@ -146,7 +146,8 @@ class AddFile(BasicInterface):
     grid.add(nlabel)
     entry = Gtk.Entry()
     entry.set_hexpand(True)
-    entry.set_text(default_value)
+    if default_value is not None:
+      entry.set_text(default_value)
     grid.add(entry)
     self._custom_entries[name] = entry
     if field.getAutocomplete():
@@ -297,7 +298,7 @@ class AddFile(BasicInterface):
       etype = self.layout.getFieldType(name)
       if etype == UI_ENTRY:
         entry = self._custom_entries[name]
-        tag_name = entry.get_text()
+        tag_name = entry.get_text().strip()
         if tag_name == '' and not field.getAllowsEmpty():
           tag_name = self._getFieldDefault(field)
         if tag_name == '':

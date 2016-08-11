@@ -411,4 +411,4 @@ class Database(Configurable):
 
 def start(*args, **kwargs):
   db = Database(*args, **kwargs)
-  return ui
+  return db

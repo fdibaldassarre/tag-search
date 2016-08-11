@@ -685,7 +685,6 @@ class Browser(BasicInterface):
       # try to use the default icon if possible
       # use a generic one otherwise
       gtk_icon = self.getFileGtkIcon(single_file, theme)
-      print(gtk_icon)
       try:
         pixbuf = theme.load_icon(gtk_icon, ICON_SIZE, 0)
       except Exception:
@@ -858,7 +857,6 @@ class Browser(BasicInterface):
           # open popup
           self.files_view_menu.popup(None, None, None, None, event.button, event.time)
         elif event.button == 1: # Left click
-          #print('openFile')
           self.openFile(widget, ipath)
       return True # event handled
 

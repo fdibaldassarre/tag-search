@@ -51,3 +51,4 @@ to create/use a different profile.
 ## TODO
 
 Filter files by mimetype
+Easier customization of Add File window

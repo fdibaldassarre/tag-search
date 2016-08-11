@@ -93,3 +93,5 @@ OLD
 icons/logo-custom.png
 css
 port.py
+priv-*.py
+priv

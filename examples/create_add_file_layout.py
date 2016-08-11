@@ -18,7 +18,7 @@ afl = ui.getAddFileLayout()
 afl.clean()
 # UI
 meta_artist = ui.getMetaTagFromName('Artist')
-afl.addEntryField('artist', meta_artist, label='Artist', default='Unknown', autocomplete=True, allow_empty=False)
+afl.addEntryField('artist', meta_artist, label='Artist', default='"Unknown"', autocomplete=True, allow_empty=False)
 afl.addSeparator()
 meta_genre = ui.getMetaTagFromName('Genre')
 afl.addRadioField('genre', meta_genre)
