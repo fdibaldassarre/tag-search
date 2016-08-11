@@ -87,3 +87,9 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Misc
+OLD
+icons/logo-custom.png
+css
+port.py
