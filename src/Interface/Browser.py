@@ -626,7 +626,7 @@ class Browser(BasicInterface):
     for single_file in files:
       self.log.info("removeFilesReal == removing file: " + single_file.getName())
       self.removeThumbnail(single_file)
-      self.tm.deleteFile(single_file, False)
+      self.tm.deleteFile(single_file, commit=False)
     self.tm.commit()
     # update the main window
     self.reloadMainWindow()
