@@ -85,7 +85,7 @@ class TMWeb():
     profile = self.getProfile()
     if profile is None or operation is None:
       return RESULT_ERROR
-    self.startManager(profile):
+    self.startManager(profile)
     if self.manager is None:
       return RESULT_ERROR
     result = self.executeOperation(operation)
