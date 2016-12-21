@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-import json
 
-JSON_Encoder = json.JSONEncoder()
-JSON_Decoder = json.JSONDecoder()
+from src.Common import json_loads
+from src.Common import json_dumps
 
 UI_ENTRY = 1
 UI_SEPARATOR = 2
@@ -31,9 +30,9 @@ class UIElement():
 
 class Field():
   
-  def __init__(self, name, meta, tags, label, default):
+  def __init__(self, name, category, tags, label, default):
     self.name = name
-    self.meta = meta
+    self.category = category
     self.tags = tags
     self.label = label
     self.default = default
@@ -47,8 +46,8 @@ class Field():
   def getDefault(self):
     return self.default
   
-  def getMeta(self):
-    return self.meta
+  def getCategory(self):
+    return self.category
   
   def getTags(self):
     return self.tags
@@ -64,13 +63,13 @@ class Field():
   
   def toList(self):
     tags_list = self.getTagsList()
-    return [self.getName(), self.meta.getCode(), tags_list, self.getLabel(), self.getDefault()]
+    return [self.getName(), self.category.getCode(), tags_list, self.getLabel(), self.getDefault()]
   
 
 class EntryField(Field):
   
-  def __init__(self, name, meta, tags, label, default, autocomplete=False, allows_empty=False):
-    super().__init__(name, meta, tags, label, default)
+  def __init__(self, name, category, tags, label, default, autocomplete=False, allows_empty=False):
+    super().__init__(name, category, tags, label, default)
     self.autocomplete = autocomplete
     self.allows_empty = allows_empty
   
@@ -88,8 +87,8 @@ class EntryField(Field):
 
 class ToggleField(Field):
   
-  def __init__(self, name, meta, tags, label, default, toggle=True, orientation=HORIZONTAL):
-    super().__init__(name, meta, tags, label, default)
+  def __init__(self, name, category, tags, label, default, toggle=True, orientation=HORIZONTAL):
+    super().__init__(name, category, tags, label, default)
     self.toggle = toggle
     self.orientation = orientation
   
@@ -131,6 +130,7 @@ class AddFileLayout():
   
   def __init__(self, tm):
     self.tm = tm
+    self.db = self.tm.getDatabase()
     self.config_folder = self.tm.config_folder
     self.layout_file = os.path.join(self.config_folder, 'addFileLayout.json')
     self.clean()
@@ -144,8 +144,8 @@ class AddFileLayout():
     self.destination = dest
   
   @validFieldName
-  def addEntryField(self, name, meta, tags=None, label=None, default=None, autocomplete=False, allows_empty=False):
-    field = EntryField(name, meta, tags, label, default, autocomplete, allows_empty)
+  def addEntryField(self, name, category, tags=None, label=None, default=None, autocomplete=False, allows_empty=False):
+    field = EntryField(name, category, tags, label, default, autocomplete, allows_empty)
     name = field.getName()
     uel = UIElement(UI_ENTRY, name)
     self.fields[name] = field
@@ -157,8 +157,8 @@ class AddFileLayout():
     self.ui.append(uel)
   
   @validFieldName
-  def addToggleField(self, name, meta, tags=None, label=None, default=None, horizontal=True):
-    field = ToggleField(name, meta, tags, label, default,toggle=True)
+  def addToggleField(self, name, category, tags=None, label=None, default=None, horizontal=True):
+    field = ToggleField(name, category, tags, label, default,toggle=True)
     if horizontal:
       field.setOrientationHorizontal()
     else:
@@ -168,8 +168,8 @@ class AddFileLayout():
     self.ui.append(uel)
   
   @validFieldName
-  def addRadioField(self, name, meta, tags=None, label=None, default=None, horizontal=True):
-    field = ToggleField(name, meta, tags, label, default, toggle=False)
+  def addRadioField(self, name, category, tags=None, label=None, default=None, horizontal=True):
+    field = ToggleField(name, category, tags, label, default, toggle=False)
     if horizontal:
       field.setOrientationHorizontal()
     else:
@@ -186,7 +186,7 @@ class AddFileLayout():
     with open(layout_file, 'r') as hand:
       data = hand.read()
     data = data.strip()
-    ulist, flist, dest = JSON_Decoder.decode(data)
+    ulist, flist, dest = json_loads(data)
     self.ui = self._listToUI(ulist)
     self.fields = self._listToFields(flist)
     self.destination = dest
@@ -205,15 +205,15 @@ class AddFileLayout():
       ftype = self.getFieldType(name)
       params = flist[name]
       if ftype == UI_ENTRY:
-        name, meta_code, tags_list, label, default, autocomplete, allows_empty = params
-        meta = self.getMetaTagFromCode(meta_code)
+        name, category_code, tags_list, label, default, autocomplete, allows_empty = params
+        category = self.getCategoryFromCode(category_code)
         tags = self.getTagsFromList(tags_list)
-        fields[name] = EntryField(name, meta, tags, label, default, autocomplete, allows_empty)
+        fields[name] = EntryField(name, category, tags, label, default, autocomplete, allows_empty)
       elif ftype == UI_TOGGLE:
-        name, meta_code, tags_list, label, default, toggle, orientation = params
-        meta = self.getMetaTagFromCode(meta_code)
+        name, category_code, tags_list, label, default, toggle, orientation = params
+        category = self.getCategoryFromCode(category_code)
         tags = self.getTagsFromList(tags_list)
-        fields[name] = ToggleField(name, meta, tags, label, default, toggle, orientation)
+        fields[name] = ToggleField(name, category, tags, label, default, toggle, orientation)
     return fields
   
   def getFieldType(self, name):
@@ -222,11 +222,11 @@ class AddFileLayout():
         return el.getType()
     return None
   
-  def getMetaTagFromCode(self, meta_code):
-    if meta_code is None:
+  def getCategoryFromCode(self, category_code):
+    if category_code is None:
       return None
     else:
-      return self.tm.getMetaTagFromCode(meta_code)
+      return self.db.getCategoryFromCode(category_code)
   
   def getTagsFromList(self, tlist):
     if tlist is None:
@@ -248,7 +248,7 @@ class AddFileLayout():
       field = self.fields[name]
       flist[name] = field.toList()
     data = (ulist, flist, self.destination)
-    json_enc = JSON_Encoder.encode(data)
+    json_enc = json_dumps(data)
     with open(layout_file, 'w') as hand:
       hand.write(json_enc)
 

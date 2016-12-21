@@ -1,15 +1,15 @@
-CREATE TABLE MetaTags (
+CREATE TABLE Categories (
   Code INTEGER PRIMARY KEY,
 	Name TEXT UNIQUE,
 	HasMagnitude INTEGER
 );
 
-INSERT INTO MetaTags(Name, HasMagnitude) VALUES ('Content', 1);
+INSERT INTO Categories(Name, HasMagnitude) VALUES ('Content', 0);
 
 CREATE TABLE Tags (
 	Code INTEGER PRIMARY KEY,
 	Name TEXT UNIQUE,
-	Meta INTEGER
+	Category INTEGER
 );
 
 /*CREATE INDEX 'TagsName' ON Tags(Name);*/

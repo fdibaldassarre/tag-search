@@ -24,15 +24,16 @@ def ignoreSignals(method):
 
 class BasicInterface():
   
-  def __init__(self, tm):
-    self.tm = tm
+  def __init__(self, ts):
+    self.ts = ts
+    self.db = self.ts.db
     # Signals control: set to True when modifying the interface
     #                  to avoid sending signals when editing widgets.
     #                  Use decorator @ignoreSignals in an interface method and the
     #                  @acceptInterfaceSignal in the signal handler methods which you want to accidentally trigger
     self._ignore_signals = False
     # Logger
-    self.log = self.tm.log
+    self.log = self.ts.log
   
   def showInfoWindow(self, title, message=None):
     self._showWindow(title, window_type=Gtk.MessageType.INFO, message=message)

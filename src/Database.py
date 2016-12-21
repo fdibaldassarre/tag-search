@@ -1,17 +1,13 @@
 #!/usr/bin/python3
 
 import os
-import sys
 import sqlite3
 from subprocess import Popen
 
-from src.Common import Configurable
 from src.Common import Tag
-from src.Common import MetaTag
+from src.Common import Category
 from src.Common import File
-from src.Common import loadFile
 
-from src.Constants import MAIN_FOLDER
 from src.Constants import SQL_FOLDER
 
 #################
@@ -30,63 +26,57 @@ def databaseCommit(method):
     return res
   return new
 
-SEARCH_PATH = 1
-SEARCH_NAME = 2
+class Database():
 
-class Database(Configurable):
-
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.db_folder = os.path.join(self.config_folder, "db/")
+  def __init__(self, db_path):
+    self.db_path = db_path
     self._setupDBFolder()
     self._loadDatabase()
   
   def _setupDBFolder(self):
-    if not os.path.exists(self.db_folder):
-      os.mkdir(self.db_folder)
+    db_folder = os.path.dirname(self.db_path)
+    if not os.path.exists(db_folder):
+      os.makedirs(db_folder)
   
   def commit(self):
     self._conn.commit()
     
-  ## LOAD DATABASE
+  ## Database
   def _loadDatabase(self):
-    db_file = os.path.join(self.db_folder, "data.db" )
-    if not os.path.exists(db_file):
+    if not os.path.exists(self.db_path):
       # create db file
       sql_filepath = os.path.join(SQL_FOLDER, "data.sql" )
       sql_file = open(sql_filepath, "r")
-      process = Popen(["sqlite3", db_file], stdin=sql_file)
+      process = Popen(["sqlite3", self.db_path], stdin=sql_file)
       process.communicate()
     # Load db
-    self._conn = sqlite3.connect(db_file)
+    self._conn = sqlite3.connect(self.db_path)
     self.db = self._conn.cursor()
     
-  ## GET
+  ## Get
   def getFilesWithTags(self, tags, use_magnitude=False, limit=None, name_contains=None):
-    codes = self.getTagsCodes(tags)
     # parameters
     params = {}
     if name_contains is not None:
       params['name_contains'] = '%' + name_contains + '%'
     # base query
     query = 'SELECT F.Code, F.Location, F.Name, F.Mime FROM Files F'
-    for code in codes:
-      query += ' INTERSECT SELECT F.Code, F.Location, F.Name, F.Mime FROM Files F, TagsFiles TF WHERE F.Code = TF.File AND TF.Tag = ' + str(code)
+    for tag in tags:
+      query += ' INTERSECT SELECT F.Code, F.Location, F.Name, F.Mime FROM Files F, TagsFiles TF WHERE F.Code = TF.File AND TF.Tag = ' + str(int(tag))
     if name_contains is not None:
       query += ' INTERSECT SELECT F.Code, F.Location, F.Name, F.Mime FROM Files F WHERE LOWER(F.Name) LIKE :name_contains'
     query += ' ORDER BY F.Name'
     # limit
     if limit is not None:
       query += ' LIMIT ' + str(limit)
-    if len(codes) > 0 and use_magnitude:
+    if len(tags) > 0 and use_magnitude:
       # NOTE: I order the file using the sum of the magnitudes of the chosen tags
       # find the files
       self.db.execute(query, params)
       files_data = self.db.fetchall()
       related_files = self.getFilesFromDBData(files_data)
-      files_codes = self.getFilesCodes(related_files)
-      codes_list = " ,".join( map(str, codes) )
-      files_codes_list = " ,".join( map(str, files_codes) )
+      codes_list = " ,".join(map(lambda t : str(int(t)), tags))
+      files_codes_list = " ,".join(map(lambda f : str(int(f)), related_files))
       query = 'SELECT F.Code, F.Location, F.Name, F.Mime, SUM(TF.Magnitude) AS Magnitude FROM Files F, TagsFiles TF WHERE F.Code = TF.File AND TF.Tag IN ( ' + codes_list + ') AND F.Code IN ( ' + files_codes_list + ' ) GROUP BY F.Code ORDER BY Magnitude DESC'
     # execute query
     self.db.execute(query, params)
@@ -96,7 +86,7 @@ class Database(Configurable):
     result_data = self.getFilesFromDBData(files_data)
     return result_data
   
-  def getFilesWithNoTag(self):
+  def getFilesWithNoTags(self):
     query = 'SELECT Code, Location, Name, Mime FROM Files WHERE Code NOT IN (SELECT File FROM TagsFiles GROUP BY File)'
     self.db.execute(query)
     files_data = self.db.fetchall()
@@ -104,14 +94,14 @@ class Database(Configurable):
     return all_files
     
   def getAllTags(self):
-    query = 'SELECT Code, Name, Meta FROM Tags ORDER BY Name'
+    query = 'SELECT Code, Name, Category FROM Tags ORDER BY Name'
     self.db.execute(query)
     tags_data = self.db.fetchall()
     all_tags = self.getTagsFromDBData(tags_data)
     return all_tags
   
   def getTagFromCode(self, code):
-    query = 'SELECT Code, Name, Meta FROM Tags WHERE Code=?'
+    query = 'SELECT Code, Name, Category FROM Tags WHERE Code=?'
     self.db.execute(query, (code,))
     data = self.db.fetchone()
     if data is None:
@@ -120,7 +110,7 @@ class Database(Configurable):
       return self.getTagFromDBData(data)
   
   def getTagFromName(self, name):
-    query = 'SELECT Code, Name, Meta FROM Tags WHERE Name=?'
+    query = 'SELECT Code, Name, Category FROM Tags WHERE Name=?'
     self.db.execute(query, (name,))
     tag_data = self.db.fetchone()
     if tag_data is None:
@@ -129,31 +119,31 @@ class Database(Configurable):
       tag = self.getTagFromDBData(tag_data)
     return tag
   
-  def getAllMetaTags(self):
-    query = 'SELECT Code, Name, HasMagnitude FROM MetaTags ORDER BY Name'
+  def getAllCategories(self):
+    query = 'SELECT Code, Name, HasMagnitude FROM Categories ORDER BY Name'
     self.db.execute(query)
-    metatags_data = self.db.fetchall()
-    all_meta = self.getMetaTagsFromDBData(metatags_data)
-    return all_meta
+    categories_data = self.db.fetchall()
+    all_category = self.getCategoriesFromDBData(categories_data)
+    return all_category
   
-  def getMetaTagFromCode(self, code):
-    query = 'SELECT Code, Name, HasMagnitude FROM MetaTags WHERE Code=?'
+  def getCategoryFromCode(self, code):
+    query = 'SELECT Code, Name, HasMagnitude FROM Categories WHERE Code=?'
     self.db.execute(query, (code,))
     data = self.db.fetchone()
     if data is None:
       return None
     else:
-      return self.getMetaTagFromDBData(data)
+      return self.getCategoryFromDBData(data)
   
-  def getMetaTagFromName(self, name):
-    query = 'SELECT Code, Name, HasMagnitude FROM MetaTags WHERE Name=?'
+  def getCategoryFromName(self, name):
+    query = 'SELECT Code, Name, HasMagnitude FROM Categories WHERE Name=?'
     self.db.execute(query, (name,))
-    metatag_data = self.db.fetchone()
-    if metatag_data is None:
-      meta = None
+    category_data = self.db.fetchone()
+    if category_data is None:
+      category = None
     else:
-      meta = self.getMetaTagFromDBData(metatag_data)
-    return meta
+      category = self.getCategoryFromDBData(category_data)
+    return category
     
   def getAllFiles(self):
     query = 'SELECT Code, Location, Name, Mime FROM Files'
@@ -162,16 +152,16 @@ class Database(Configurable):
     all_files = self.getFilesFromDBData(files_data)
     return all_files
   
-  def getAllTagsWithMeta(self, meta_tag):
-    query = 'SELECT Code, Name, Meta FROM Tags WHERE Meta = ? ORDER BY Name'
-    self.db.execute(query, ( meta_tag.getCode(), ))
+  def getAllTagsWithCategory(self, category):
+    query = 'SELECT Code, Name, Category FROM Tags WHERE Category = ? ORDER BY Name'
+    self.db.execute(query, (int(category), ))
     tags_data = self.db.fetchall()
     tags = self.getTagsFromDBData(tags_data)
     return tags
   
   def getTagsOfFile(self, single_file):
-    query = 'SELECT T.Code, T.Name, T.Meta, TF.Magnitude FROM TagsFiles TF, Tags T WHERE T.Code = TF.Tag AND TF.File = ? ORDER BY T.Name'
-    self.db.execute(query, (single_file.getCode(), ))
+    query = 'SELECT T.Code, T.Name, T.Category, TF.Magnitude FROM TagsFiles TF, Tags T WHERE T.Code = TF.Tag AND TF.File = ? ORDER BY T.Name'
+    self.db.execute(query, (int(single_file), ))
     all_data = self.db.fetchall()
     tags = self.getTagsFromDBData(all_data)
     result = {}
@@ -182,15 +172,14 @@ class Database(Configurable):
     return result
   
   def getCommonTags(self, files):
-    codes = self.getFilesCodes(files)
-    if len(codes) == 0:
+    if len(files) == 0:
       return []
-    if len(codes) > 1:
-      files_codes = " ,".join(map(str, codes))
-      query = 'SELECT T.Code, T.Name, T.Meta FROM TagsFiles TF, Tags T WHERE T.Code = TF.Tag AND TF.File IN (' + files_codes + ') ORDER BY T.Name'
+    if len(files) > 1:
+      files_codes = " ,".join(map(lambda f : str(int(f)), files))
+      query = 'SELECT T.Code, T.Name, T.Category FROM TagsFiles TF, Tags T WHERE T.Code = TF.Tag AND TF.File IN (' + files_codes + ') ORDER BY T.Name'
     else:
-      code = codes[0]
-      query = 'SELECT T.Code, T.Name, T.Meta FROM TagsFiles TF, Tags T WHERE T.Code = TF.Tag AND TF.File = ' + str(code) + ' ORDER BY T.Name'
+      f = files[0]
+      query = 'SELECT T.Code, T.Name, T.Category FROM TagsFiles TF, Tags T WHERE T.Code = TF.Tag AND TF.File = ' + str(int(f)) + ' ORDER BY T.Name'
     self.db.execute(query)
     tags_data = self.db.fetchall()
     tags = self.getTagsFromDBData(tags_data)
@@ -199,9 +188,9 @@ class Database(Configurable):
   ## ADD/DELETE
   @databaseCommit
   def addTag(self, tag):
-    query = 'INSERT INTO Tags(Name, Meta) VALUES (?, ?)'
+    query = 'INSERT INTO Tags(Name, Category) VALUES (?, ?)'
     try:
-      self.db.execute(query, (tag.getName(), tag.getMetaCode()))
+      self.db.execute(query, (tag.getName(), tag.getCategory()))
     except sqlite3.IntegrityError:
       return None
     code = self.db.lastrowid
@@ -211,9 +200,9 @@ class Database(Configurable):
   @databaseCommit
   def deleteTag(self, tag):
     query = 'DELETE FROM Tags WHERE Code = ?'
-    self.db.execute(query, (tag.getCode(), ))
+    self.db.execute(query, (int(tag), ))
     query = 'DELETE FROM TagsFiles WHERE Tag = ?'
-    self.db.execute(query, (tag.getCode(), ))
+    self.db.execute(query, (int(tag), ))
   
   @databaseCommit
   def addFile(self, nfile):
@@ -234,14 +223,6 @@ class Database(Configurable):
       code = self.addFile(single_file, commit=False)
       codes.append(code)
     return codes
-    '''
-    add_data = []
-    for single_file in files:
-      file_data = (single_file.getLocation(), single_file.getName(), single_file.getMime())
-      add_data.append(file_data)
-    query = 'INSERT INTO Files(Location, Name, Mime) VALUES (?, ?, ?)'
-    self.db.executemany(query, add_data)
-    '''
   
   @databaseCommit
   def deleteFile(self, del_file):
@@ -251,27 +232,27 @@ class Database(Configurable):
     self.db.execute(query, (del_file.getCode(), ))
   
   @databaseCommit
-  def addMetaTag(self, metatag):
-    has_magnitude = 1 if metatag.hasMagnitude() else 0
-    query = 'INSERT INTO MetaTags(Name, HasMagnitude) VALUES (?, ?)'
+  def addCategory(self, category):
+    has_magnitude = 1 if category.hasMagnitude() else 0
+    query = 'INSERT INTO Categories(Name, HasMagnitude) VALUES (?, ?)'
     try:
-      self.db.execute(query, (metatag.getName(), has_magnitude))
+      self.db.execute(query, (category.getName(), has_magnitude))
     except sqlite3.IntegrityError:
       return None
     code = self.db.lastrowid
-    metatag.setCode(code)
+    category.setCode(code)
     return code
   
   @databaseCommit
-  def deleteMetaTag(self, metatag):
+  def deleteCategory(self, category):
     # delete only if there are no associated tags
-    query = 'SELECT Code FROM Tags WHERE Meta = ?'
-    self.db.execute(query, (metatag.getCode(), ))
+    query = 'SELECT Code FROM Tags WHERE Category = ?'
+    self.db.execute(query, (int(category), ))
     result = self.db.fetchall()
     if len(result) == 0:
-      # delete this meta
-      query = 'DELETE FROM MetaTags WHERE Code = ?'
-      self.db.execute(query, (metatag.getCode(), ))
+      # delete this category
+      query = 'DELETE FROM Categories WHERE Code = ?'
+      self.db.execute(query, (int(category), ))
       return True
     else:
       return False
@@ -281,21 +262,21 @@ class Database(Configurable):
   def renameTag(self, tag, new_name):
     query = 'UPDATE Tags SET Name = ? WHERE Code = ?'
     try:
-      self.db.execute(query, (new_name, tag.getCode()))
+      self.db.execute(query, (new_name, int(tag)))
     except sqlite3.IntegrityError:
       return None
     return True
     
   @databaseCommit
-  def changeTagMeta(self, tag, new_meta):
-    query = 'UPDATE Tags SET Meta = ? WHERE Code = ?'
-    self.db.execute(query, (new_meta.getCode(), tag.getCode()))
+  def changeTagCategory(self, tag, new_category):
+    query = 'UPDATE Tags SET Category = ? WHERE Code = ?'
+    self.db.execute(query, (int(new_category), int(tag)))
   
   @databaseCommit
-  def renameMetaTag(self, meta_tag, new_name):
-    query = 'UPDATE MetaTags SET Name = ? WHERE Code = ?'
+  def renameCategory(self, category, new_name):
+    query = 'UPDATE Categories SET Name = ? WHERE Code = ?'
     try:
-      self.db.execute(query, (new_name, meta_tag.getCode()))
+      self.db.execute(query, (new_name, int(new_category)))
     except sqlite3.IntegrityError:
       return None
     return True
@@ -304,84 +285,60 @@ class Database(Configurable):
   @databaseCommit
   def addTagToFile(self, tag, single_file, magnitude=1):
     query = 'INSERT INTO TagsFiles(Tag, File, Magnitude) VALUES (?, ?, ?)'
-    self.db.execute(query, (tag.getCode(), single_file.getCode(), magnitude))
+    self.db.execute(query, (int(tag), int(single_file), magnitude))
   
   @databaseCommit
   def removeTagFromFile(self, tag, single_file):
     query = 'DELETE FROM TagsFiles WHERE Tag = ? AND File = ?'
-    self.db.execute(query, (tag.getCode(), single_file.getCode()))
+    self.db.execute(query, (int(tag), int(single_file)))
   
   @databaseCommit
   def changeTagMagnitudeForFile(self, tag, single_file, new_magnitude):
     query = 'UPDATE TagsFiles SET Magnitude = ? WHERE Tag = ? AND File = ?'
-    self.db.execute(query, (new_magnitude, tag.getCode(), single_file.getCode()))
+    self.db.execute(query, (new_magnitude, int(tag), int(single_file)))
   
   @databaseCommit
-  def changeFilePath(self, single_file, new_filepath):
-    # check if empty
-    if len(new_filepath) == 0:
-      return False
-    new_file = loadFile(new_filepath)
-    # update database
-    query = 'UPDATE Files SET Location = ?, Name = ?, Mime = ? WHERE Code = ?'
-    location = new_file.getLocation()
-    name = new_file.getName()
-    mime = new_file.getMime()
-    self.db.execute(query, (location, name, mime, single_file.getCode()))
+  def changeFilePath(self, single_file, location, name):
+    query = 'UPDATE Files SET Location = ?, Name = ? WHERE Code = ?'
+    self.db.execute(query, (location, name, int(single_file)))
   
+  def changeFileMime(self, single_file, mime):
+    query = 'UPDATE Files SET Mime = ? WHERE Code = ?'
+    self.db.execute(query, (mime, int(single_file)))
+    
   ## Search file
-  def searchFileByFilepath(self, filepath):
-    location = os.path.dirname(filepath)
-    name = os.path.basename(filepath)
-    single_file = File(-1, location, name, None)
-    return self.searchFile(single_file, SEARCH_PATH)
-  
-  def searchFile(self, single_file, mode=SEARCH_PATH):  
-    # I have no code
-    if mode == SEARCH_PATH:
-      query = 'SELECT Code, Location, Name, Mime FROM Files WHERE Location = ? AND Name = ?'
-      self.db.execute(query, (single_file.getLocation(), single_file.getName()))
-    elif mode == SEARCH_NAME:
-      query = 'SELECT Code, Location, Name, Mime FROM Files WHERE Name = ?'
-      self.db.execute(query, (single_file.getName(), ))
+  def getFileByRelativePath(self, path):
+    location = os.path.dirname(path)
+    name = os.path.basename(path)
+    query = 'SELECT Code, Location, Name, Mime FROM Files WHERE Location = ? AND Name = ?'
+    self.db.execute(query, (location, name))
+    data = self.db.fetchone()
+    if data is None:
+      return None
     else:
-      return []
-    # fetch result
+      return self.getFileFromDBData(data)
+  
+  def getFilesByName(self, name):
+    query = 'SELECT Code, Location, Name, Mime FROM Files WHERE Name = ?'
+    self.db.execute(query, (name,))
     files_data = self.db.fetchall()
-    # organize results
-    result_data = self.getFilesFromDBData(files_data)
-    return result_data
+    result = self.getFilesFromDBData(files_data)
+    return result
   
-  ## File/Tag/MetaTag DATA EXTRACTION
-  def getTagsNames(self, tags):
-    names = []
-    for tag in tags:
-      names.append(tag.getName())
-    return names
-  
-  def getTagsCodes(self, tags):
-    codes = []
-    for tag in tags:
-      codes.append(tag.getCode())
-    return codes
-
-  def getFilesCodes(self, files):
-    codes = []
-    for single_file in files:
-      codes.append(single_file.getCode())
-    return codes
-  
-  ## File/Tag/MetaTag CREATION
+  ## DB Item creation
   def getFilesFromDBData(self, files_data):
     files = []
     for file_data in files_data:
-      code = file_data[0]
-      path = file_data[1]
-      name = file_data[2]
-      mime = file_data[3]
-      new_file = File(code, path, name, mime)
+      new_file = self.getFileFromDBData(file_data)
       files.append(new_file)
     return files
+  
+  def getFileFromDBData(self, file_data):
+    code = file_data[0]
+    location = file_data[1]
+    name = file_data[2]
+    mime = file_data[3]
+    return File(code, name, location, mime)
   
   def getTagsFromDBData(self, tags_data):
     tags = []
@@ -393,22 +350,22 @@ class Database(Configurable):
   def getTagFromDBData(self, tag_data):
     code = tag_data[0]
     name = tag_data[1]
-    meta = tag_data[2]
-    return Tag(code, name, meta)
+    category = tag_data[2]
+    return Tag(code, name, category)
   
-  def getMetaTagsFromDBData(self, metatags_data):
-    meta_tags = []
-    for metatag_data in metatags_data:
-      new_meta = self.getMetaTagFromDBData(metatag_data)
-      meta_tags.append(new_meta)
-    return meta_tags
+  def getCategoriesFromDBData(self, categories_data):
+    categorys = []
+    for category_data in categories_data:
+      new_category = self.getCategoryFromDBData(category_data)
+      categorys.append(new_category)
+    return categorys
   
-  def getMetaTagFromDBData(self, metatag_data):
-    code = metatag_data[0]
-    name = metatag_data[1]
-    has_magnitude = metatag_data[2]
-    return MetaTag(code, name, has_magnitude)
+  def getCategoryFromDBData(self, category_data):
+    code = category_data[0]
+    name = category_data[1]
+    has_magnitude = category_data[2]
+    return Category(code, name, has_magnitude)
 
-def start(*args, **kwargs):
-  db = Database(*args, **kwargs)
+def start(db_path):
+  db = Database(db_path)
   return db

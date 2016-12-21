@@ -89,10 +89,10 @@
             <property name="orientation">vertical</property>
             <property name="spacing">5</property>
             <child>
-              <object class="GtkComboBoxText" id="MetaSelector">
+              <object class="GtkComboBoxText" id="CategorySelector">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <signal name="changed" handler="changeMetaTag" swapped="no"/>
+                <signal name="changed" handler="changeCategory" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>

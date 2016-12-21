@@ -7,7 +7,7 @@ from gi.repository import Gdk
 
 from src.Common import loadFile
 from src.Common import createTag
-from src.Common import createMetaTag
+from src.Common import createCategory
 
 from src.Constants import MAIN_FOLDER
 from src.Constants import CSS_FOLDER
@@ -34,15 +34,15 @@ class SHandler():
   def tfCloseMain(self, *args):
     self.interface.close()
   
-  ## Meta selector
+  ## Category selector
   @acceptInterfaceSignals
   def tfRefreshTagsGrid(self, *args):
     self.interface.refreshTagGrid()
   
   ## Add Tags buttons
   @acceptInterfaceSignals
-  def tfAddMetaTag(self, *args):
-    self.interface.addMetaTag()
+  def tfAddCategory(self, *args):
+    self.interface.addCategory()
   
   @acceptInterfaceSignals
   def tfAddTag(self, *args):
@@ -51,7 +51,7 @@ class SHandler():
   ## Search
   @acceptInterfaceSignals
   def tfSearchMatch(self, widget, model, path):
-    tag = model[path] # tag[0] = code, tag[1] = name, tag[2] = meta
+    tag = model[path] # tag[0] = code, tag[1] = name, tag[2] = category
     self.interface.searchSelected(tag)
     return True
   
@@ -89,15 +89,15 @@ class TagFile(BasicInterface):
     self.initializeVariables()
   
   def initializeVariables(self):
-    self.meta_tags = self.tm.getAllMetaTags()
-    self.tags = self.tm.getAllTags()
-    self.current_meta = self.meta_tags[0]
+    self.categories = self.db.getAllCategories()
+    self.tags = self.db.getAllTags()
+    self.current_category = self.categories[0]
     # Load item tags
     self.items_tags = {}
     for single_file in self.files:
       single_item_tags = {}
       # set active tags
-      tags_mag = self.tm.getTagsOfFile(single_file)
+      tags_mag = self.db.getTagsOfFile(single_file)
       for tag in self.tags:
         if tag.code in tags_mag:
           single_item_tags[tag] = tags_mag[tag.getCode()]
@@ -142,14 +142,13 @@ class TagFile(BasicInterface):
   def _loadFiles(self, filepaths):
     self.files = []
     for filepath in filepaths:
-      db_files = self.tm.searchFileByFilepath(filepath)
-      if len(db_files) == 0:
+      tfile = self.ts.getFileByPath(filepath)
+      if tfile is None:
+        self.log.info("_loadFiles == Add file to database:" + filepath)
         # add to database
-        single_file = loadFile(filepath)
-        self.tm.addFile(single_file)
-        # search again to find id # TODO: find a better way (use last inserted ids?)
-        db_files = self.tm.searchFile(single_file)
-      self.files.append(db_files[0])
+        tfile = self.ts.loadFile(filepath)
+        self.db.addFile(tfile)
+      self.files.append(tfile)
   
   ########################
   ## Interface creation ##
@@ -158,7 +157,7 @@ class TagFile(BasicInterface):
     ## Setup tags store
     store = self.builder.get_object("TFSearchTagsStore")
     for tag in self.tags:
-      store.append([tag.getCode(), tag.getName(), tag.getMetaCode()])
+      store.append([tag.getCode(), tag.getName(), tag.getCategory()])
     ## Create an entry with autocompletion (NOTE: Glade sucks)
     cell_area = Gtk.CellAreaBox()
     cell_area.set_name('searchentrysuggestions') # FIXME: does not assign the class correctly (Gtk bug most probabily)
@@ -202,23 +201,23 @@ class TagFile(BasicInterface):
   def populateMainWindow(self):
     self.log.info("populateMainWindow == Starting")
     self.tags_widget = {}
-    ## Meta selector
-    main_meta_selector = self.builder.get_object("TFCategorySelector")
+    ## Category selector
+    main_category_selector = self.builder.get_object("TFCategorySelector")
     # Fill
-    self.fillMetaTagSelector(main_meta_selector)
+    self.fillCategorySelector(main_category_selector)
     # Set active
     count = 0
     active = 0
-    for meta_tag in self.meta_tags:
-      if meta_tag == self.current_meta:
+    for category in self.categories:
+      if category == self.current_category:
         active = count
         break
       count += 1
-    main_meta_selector.set_active(active)
+    main_category_selector.set_active(active)
     # Tags grids
     self.tags_grids = {}
-    for meta_tag in self.meta_tags:
-      self.tags_grids[meta_tag.code] = self._createTagGridFor(meta_tag)
+    for category in self.categories:
+      self.tags_grids[category.code] = self._createTagGridFor(category)
     # Add the tags grids
     all_tags_grid = self.builder.get_object("TFTagsBox")
     self.emptyContainer(all_tags_grid)
@@ -226,21 +225,21 @@ class TagFile(BasicInterface):
       grid = self.tags_grids[code]
       all_tags_grid.add(grid)
     # Setup add tag line
-    tag_meta = self.builder.get_object("TFAddTagCategory")
-    self.fillMetaTagSelector(tag_meta)
-    tag_meta.set_active(0)
+    tag_category = self.builder.get_object("TFAddTagCategory")
+    self.fillCategorySelector(tag_category)
+    tag_category.set_active(0)
     # Refresh tag grid
     self.refreshTagGrid()
   
   #####################################
   ## Interface creation - Tags grids ##
   #####################################
-  def _createTagGridFor(self, meta_tag):
+  def _createTagGridFor(self, category):
     tags = []
     for tag in self.tags:
-      if tag.meta == meta_tag.getCode():
+      if tag.getCategory() == category.getCode():
         tags.append(tag)
-    if meta_tag.has_magnitude:
+    if category.has_magnitude:
       return self._createMagnitudeTagGrid(tags)
     else:
       return self._createToggleTagGrid(tags)
@@ -362,26 +361,26 @@ class TagFile(BasicInterface):
     for child in children:
       child.destroy()
   
-  def fillMetaTagSelector(self, meta_selector):
-    meta_selector.remove_all()
-    # Add meta tags
-    for meta_tag in self.meta_tags:
-      meta_selector.append_text(meta_tag.getName())
+  def fillCategorySelector(self, category_selector):
+    category_selector.remove_all()
+    # Add category tags
+    for category in self.categories:
+      category_selector.append_text(category.getName())
   
   def refreshTagGrid(self):
-    active_meta = self.getCurrentMetaSelector()
-    current_meta = self.meta_tags[active_meta]
+    active_category = self.getCurrentCategorySelector()
+    current_category = self.categories[active_category]
     # Show the corresponsing grid
-    for meta_code in self.tags_grids:
-      grid = self.tags_grids[meta_code]
-      if meta_code == current_meta.getCode():
+    for category_code in self.tags_grids:
+      grid = self.tags_grids[category_code]
+      if category_code == current_category.getCode():
         grid.show_all()
       else:
         grid.hide()
   
-  def getCurrentMetaSelector(self):
-    main_meta_selector = self.builder.get_object("TFCategorySelector")
-    return main_meta_selector.get_active()
+  def getCurrentCategorySelector(self):
+    main_category_selector = self.builder.get_object("TFCategorySelector")
+    return main_category_selector.get_active()
   
   ################
   ## Start/Stop ##
@@ -394,7 +393,7 @@ class TagFile(BasicInterface):
   
   def close(self):
     self.main_window.hide()
-    self.tm.close()
+    self.ts.close()
   
   ##############
   ## Load CSS ##
@@ -438,16 +437,16 @@ class TagFile(BasicInterface):
           if tag in item_tags and item_tags[tag] == 1:
             pass
           else:
-            self.tm.addTagToFile(tag, single_file, 1, commit=False)
+            self.db.addTagToFile(tag, single_file, 1, commit=False)
             self.items_tags[single_file][tag] = 1
       else:
         for single_file in self.files:
           item_tags = self.items_tags[single_file]
           if tag in item_tags and item_tags[tag] == 1:
-            self.tm.removeTagFromFile(tag, single_file, commit=False)
+            self.db.removeTagFromFile(tag, single_file, commit=False)
             self.items_tags[single_file][tag] = 0
       # Commit changes to db
-      self.tm.commit()
+      self.db.commit()
     return True
         
   ##########################
@@ -460,7 +459,7 @@ class TagFile(BasicInterface):
       for single_file in self.files:
         tags_magnitude = self.items_tags[single_file]
         if tag in tags_magnitude and tags_magnitude[tag] > 0:
-          self.tm.removeTagFromFile(tag, single_file, commit=False)
+          self.db.removeTagFromFile(tag, single_file, commit=False)
           self.items_tags[single_file][tag] = 0
         else:
           pass
@@ -468,52 +467,52 @@ class TagFile(BasicInterface):
       for single_file in self.files:
         tags_magnitude = self.items_tags[single_file]
         if tag in tags_magnitude and tags_magnitude[tag] > 0:
-          self.tm.changeTagMagnitudeForFile(tag, single_file, magnitude, commit=False)
+          self.db.changeTagMagnitudeForFile(tag, single_file, magnitude, commit=False)
         else:
-          self.tm.addTagToFile(tag, single_file, magnitude, commit=False)
+          self.db.addTagToFile(tag, single_file, magnitude, commit=False)
         self.items_tags[single_file][tag] = magnitude
     # Commit changes
-    self.tm.commit()
+    self.db.commit()
     return True
   
-  ##################
-  ## Add Tag/Meta ##
-  ##################
-  def addMetaTag(self):
+  ######################
+  ## Add Tag/Category ##
+  ######################
+  def addCategory(self):
     entry = self.builder.get_object("TFAddCategoryName")
-    meta_tag_name = entry.get_text()
+    category_name = entry.get_text()
     entry.set_text('')
-    meta_tag_name = meta_tag_name.strip()
+    category_name = category_name.strip()
     has_magn_entry = self.builder.get_object("TFAddCategoryMagnitude")
-    meta_has_magnitude = has_magn_entry.get_active()
-    new_meta = createMetaTag(meta_tag_name, meta_has_magnitude)
-    res = self.tm.addMetaTag(new_meta)
+    category_has_magnitude = has_magn_entry.get_active()
+    new_category = createCategory(category_name, category_has_magnitude)
+    res = self.db.addCategory(new_category)
     if res is None:
       self.showErrorWindow("Duplicate name")
     else:
       self.showInfoWindow("Category created")
-      self.reloadMainWindow(new_meta.getCode())
+      self.reloadMainWindow(new_category.getCode())
   
   def addTag(self):
     entry = self.builder.get_object("TFAddTagName")
     tag_name = entry.get_text()
     entry.set_text('')
     tag_name = tag_name.strip()
-    meta_entry = self.builder.get_object("TFAddTagCategory")
-    meta_id = meta_entry.get_active()
-    meta = self.meta_tags[meta_id]
-    tag_meta = meta.getCode()
-    new_tag = createTag(tag_name, tag_meta)
-    res = self.tm.addTag(new_tag)
+    category_entry = self.builder.get_object("TFAddTagCategory")
+    category_id = category_entry.get_active()
+    category = self.categories[category_id]
+    tag_category = category.getCode()
+    new_tag = createTag(tag_name, tag_category)
+    res = self.db.addTag(new_tag)
     if res is None:
       self.showErrorWindow("Duplicate name")
       return None
     # add tag to the files
     for single_file in self.files:
-      self.tm.addTagToFile(new_tag, single_file, magnitude=1, commit=False)
-    self.tm.commit()
+      self.db.addTagToFile(new_tag, single_file, magnitude=1, commit=False)
+    self.db.commit()
     self.showInfoWindow("Tag created")
-    self.reloadMainWindow(new_tag.getMetaCode())
+    self.reloadMainWindow(new_tag.getCategory())
   
   ############
   ## Search ##
@@ -521,7 +520,7 @@ class TagFile(BasicInterface):
   def searchSelected(self, tag):
     code = tag[0]
     name = tag[1]
-    meta = tag[2]
+    category_code = tag[2]
     # Set search tag
     self.search_tag = None
     for tag in self.tags:
@@ -535,14 +534,14 @@ class TagFile(BasicInterface):
     # Clear entry
     entry = self.builder.get_object("TFSearchEntry")
     entry.set_text("")
-    # Get meta tag
-    for meta_tag in self.meta_tags:
-      if meta_tag.getCode() == meta:
+    # Get category
+    for category in self.categories:
+      if category.getCode() == category_code:
         break
     # Show add/set magnitude
     magn_grid = self.builder.get_object("TFSearchTagMagnitude")
     btn = self.builder.get_object('TFSearchTagValue')
-    if meta_tag.hasMagnitude():
+    if category.hasMagnitude():
       # show magnitude grid
       btn.hide()
       magn_grid.show()
@@ -584,13 +583,13 @@ class TagFile(BasicInterface):
   ## Interface reload ##
   ######################
   @ignoreSignals
-  def reloadMainWindow(self, current_meta_code=None):
+  def reloadMainWindow(self, current_category_code=None):
     self.initializeVariables()
-    # update meta code
-    if current_meta_code is not None:
-      for meta_tag in self.meta_tags:
-        if meta_tag.getCode() == current_meta_code:
-          self.current_meta = meta_tag
+    # update category code
+    if current_category_code is not None:
+      for category in self.categories:
+        if category.getCode() == current_category_code:
+          self.current_category = category
     self.populateMainWindow()
 
 ######################
@@ -603,11 +602,11 @@ class TagFileBrowser(TagFile):
     self.files = filepaths
   
   def start(self):
-    self.main_window.set_transient_for(self.tm.browser.main_window)
+    self.main_window.set_transient_for(self.ts.browser.main_window)
     self.show()
   
   def close(self):
-    self.tm.browser.reloadMainWindow()
+    self.ts.browser.reloadMainWindow()
     self.main_window.destroy()
 
 def open(*args, **kwargs):

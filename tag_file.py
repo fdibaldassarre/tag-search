@@ -4,6 +4,7 @@ import os
 import argparse
 
 from src import TagSearch
+from src.Common import getConfigFolder
 
 parser = argparse.ArgumentParser(description='Tag file')
 parser.add_argument('path', help='file to tag')
@@ -13,7 +14,7 @@ args = parser.parse_args()
 path = args.path
 profile = args.profile
 
-config_folder = os.path.join(os.environ['HOME'], ".config/tag-search/" + profile)
+config_folder = getConfigFolder(profile)
 
 ui = TagSearch.start(config_folder)
 ui.openTagFile(path)

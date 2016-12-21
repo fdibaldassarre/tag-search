@@ -43,8 +43,8 @@ class PseudoTag():
   def getName(self):
     return self.name
 
-## PsuedoMetaTag
-class PseudoMetaTag():
+## PsuedoCategory
+class PseudoCategory():
   
   def __init__(self, name):
     self.name = name
@@ -77,8 +77,8 @@ class SHandler():
     self.interface.removeTagFromSearch(*args)
   
   @acceptInterfaceSignals
-  def changeMetaTag(self, *args):
-    self.interface.changeMetaTag(*args)
+  def changeCategory(self, *args):
+    self.interface.changeCategory(*args)
   
   @acceptInterfaceSignals
   def changeName(self, *args):
@@ -190,14 +190,14 @@ class BrowserMenu():
 #############
 class Browser(BasicInterface):
 
-  def __init__(self, tm):
-    super().__init__(tm)
+  def __init__(self, ts):
+    super().__init__(ts)
     self._setup()
     self._loadInterface()
   
   def _setup(self):
-    self.profile = self.tm.getProfileName()
-    self.thumbnails_folder = os.path.join(self.tm.config_folder, "thumbnails/")
+    self.profile = self.ts.getProfileName()
+    self.thumbnails_folder = os.path.join(self.ts.config_folder, "thumbnails/")
     if not os.path.exists(self.thumbnails_folder):
       os.mkdir(self.thumbnails_folder)
     # Inizialize variables
@@ -246,8 +246,8 @@ class Browser(BasicInterface):
     self.log.info("_finalizeInterface == Update the files view")
     self.updateFilesView()
     # update category selector
-    self.log.info("_finalizeInterface == Update the meta selector")
-    self.updateMetaSelector()
+    self.log.info("_finalizeInterface == Update the category selector")
+    self.updateCategorySelector()
   
   def _createHeader(self):
     # menus
@@ -295,29 +295,29 @@ class Browser(BasicInterface):
     self.log.info("initializeVariables == Initialize variables")
     # Config
     self.reloadConfig()
-    # Tags and Meta lists
-    self.meta_tags = self.tm.getAllMetaTags()
-    self.tags = self.tm.getAllTags()
-    # Current used tags/meta
-    self.current_meta = None
+    # Tags and Categories lists
+    self.categories = self.db.getAllCategories()
+    self.tags = self.db.getAllTags()
+    # Current used tags/category
+    self.current_category = None
     self.used_tags = []
     if used_tags is not None:
       self._importUsedTags(used_tags)
     # Current files
-    self.files = self.tm.getFilesWithTags(self.used_tags, self.use_magnitude)
+    self.files = self.db.getFilesWithTags(self.used_tags, self.use_magnitude)
     # Status
     self.files_results_limit = RESULT_LIMIT
-    # Available tags and meta
+    # Available tags and categories
     self.available_tags = []
-    self.available_meta_tags = [PseudoMetaTag('')]
+    self.available_categories = [PseudoCategory('')]
     self.updateAvailableTags()
-    self.updateAvailableMetaTags()
+    self.updateAvailableCategories()
     # Interface related
     self.require_files_view_deferred_update = False
   
   def reloadConfig(self):
-    self.root = self.tm.config['root']
-    self.use_magnitude = self.tm.config['use_magnitude']
+    self.root = self.ts.config['root']
+    self.use_magnitude = self.ts.config['use_magnitude']
   
   def _importUsedTags(self, old_used_tags):
     for tag in old_used_tags:
@@ -330,7 +330,7 @@ class Browser(BasicInterface):
     self.main_window = self.builder.get_object('Browser')
     self.settings_window = self.builder.get_object('SettingsWindow')
     self.used_tags_view = self.builder.get_object('UsedTagsList')
-    self.meta_selector = self.builder.get_object('MetaSelector')
+    self.category_selector = self.builder.get_object('CategorySelector')
     self.no_tags_available_label = self.builder.get_object('NoTagsAvailable')
     self.files_view = self.builder.get_object('FilesView')
     self.files_view.set_text_column(1)
@@ -363,7 +363,7 @@ class Browser(BasicInterface):
   
   def close(self, *args):
     self.main_window.hide()
-    self.tm.close()
+    self.ts.close()
   
   ###################
   ## Display utils ##
@@ -391,10 +391,10 @@ class Browser(BasicInterface):
     if name_contains == '':
       name_contains = None
     # find the files
-    self.files = self.tm.getFilesWithTags(self.used_tags, self.use_magnitude, name_contains=name_contains)
+    self.files = self.db.getFilesWithTags(self.used_tags, self.use_magnitude, name_contains=name_contains)
     self.updateFilesStore()
     # reload the interface
-    self.updateMetaSelector()
+    self.updateCategorySelector()
     self.updateUsedTagsView()
     self.updateFilesView()
     self.log.info('reloadMainWindow == End')
@@ -418,22 +418,22 @@ class Browser(BasicInterface):
       child.destroy()
   
   @ignoreSignals
-  def updateMetaSelector(self):
-    self.log.info("updateMetaSelector == Start")
-    self.meta_selector.remove_all()
-    for meta_tag in self.available_meta_tags:
-      self.meta_selector.append_text(meta_tag.getName())
-    if not self.current_meta in self.available_meta_tags:
+  def updateCategorySelector(self):
+    self.log.info("updateCategorySelector == Start")
+    self.category_selector.remove_all()
+    for category in self.available_categories:
+      self.category_selector.append_text(category.getName())
+    if not self.current_category in self.available_categories:
       index = 0
     else:
-      index = self.available_meta_tags.index(self.current_meta)
-    self.meta_selector.set_active(index)
-    self.changeMetaTag()
+      index = self.available_categories.index(self.current_category)
+    self.category_selector.set_active(index)
+    self.changeCategory()
     # show/hide
-    if len(self.available_meta_tags) == 1:
-      self.meta_selector.hide()
+    if len(self.available_categories) == 1:
+      self.category_selector.hide()
     else:
-      self.meta_selector.show_all()
+      self.category_selector.show_all()
 
   def updateTagsGrid(self):
     self.log.info("updateTagsGrid == Start")
@@ -442,7 +442,7 @@ class Browser(BasicInterface):
     # show grid
     for tag in self.tags_grids:
       btn = self.tags_grids[tag]
-      if (self.current_meta is None or tag.getMetaCode() == self.current_meta.getCode()) and \
+      if (self.current_category is None or tag.getCategory() == self.current_category.getCode()) and \
          tag in self.available_tags and search_term.lower() in tag.getName().lower():
         btn.show()
         tags_grid_is_empty = False
@@ -498,29 +498,29 @@ class Browser(BasicInterface):
     pseudo_tag = PseudoTag("UNTAGGED")
     self.used_tags.append(pseudo_tag)
     # search files
-    self.files = self.tm.getFilesWithNoTag()
+    self.files = self.db.getFilesWithNoTag()
     self.updateFilesStore()
     # update interface
     # update the available tags
     self.available_tags.clear()
-    self.updateAvailableMetaTags()
+    self.updateAvailableCategories()
     # update the interface
-    self.updateMetaSelector()
+    self.updateCategorySelector()
     self.updateUsedTagsView()
     self.updateFilesView()
   
   ##########################
   ## Tags/Files selection ##
   ##########################
-  def changeMetaTag(self, *args):
-    # change the current meta
-    self.log.info("changeMetaTag == Start")
-    index = self.meta_selector.get_active()
+  def changeCategory(self, *args):
+    # Change the current category
+    self.log.info("changeCategory == Start")
+    index = self.category_selector.get_active()
     if index > 0:
-      self.current_meta = self.available_meta_tags[index]
+      self.current_category = self.available_categories[index]
     else:
-      self.current_meta = None
-    # update the interface
+      self.current_category = None
+    # Update the interface
     self.updateTagsGrid()
   
   def tagNameSearch(self, *args):
@@ -543,9 +543,9 @@ class Browser(BasicInterface):
     self.searchFiles()
     return True
   
-  ########################
-  ## Tag/Meta selection ##
-  ########################
+  ############################
+  ## Tag/Category selection ##
+  ############################
   def updateAvailableTags(self):
     # update available tags
     self.available_tags.clear()
@@ -553,22 +553,22 @@ class Browser(BasicInterface):
       for tag in self.tags:
         self.available_tags.append(tag)
     else:
-      valid_tags = self.tm.getCommonTags(self.files)
-      valid_tags_codes = self.tm.getTagsCodes(valid_tags)
+      valid_tags = self.db.getCommonTags(self.files)
+      valid_tags_codes = list(map(lambda t : int(t), valid_tags))
       for tag in self.tags:
         if tag.getCode() in valid_tags_codes and not tag in self.used_tags:
           self.available_tags.append(tag)
     
-  def updateAvailableMetaTags(self):
-    self.available_meta_tags.clear()
-    self.available_meta_tags = [PseudoMetaTag('')]
-    meta_codes = []
+  def updateAvailableCategories(self):
+    self.available_categories.clear()
+    self.available_categories = [PseudoCategory('')]
+    cat_codes = []
     for tag in self.available_tags:
-      if not tag.getMetaCode() in meta_codes:
-        meta_codes.append(tag.getMetaCode())
-    for meta_tag in self.meta_tags:
-      if meta_tag.getCode() in meta_codes:
-        self.available_meta_tags.append(meta_tag)
+      if not tag.getCategory() in cat_codes:
+        cat_codes.append(tag.getCategory())
+    for category in self.categories:
+      if category.getCode() in cat_codes:
+        self.available_categories.append(category)
   
   ######################
   ## Open file/folder ##
@@ -577,11 +577,11 @@ class Browser(BasicInterface):
     file_code = self.files_store[item][0]
     single_file = None
     for el_file in self.files:
-      if el_file.getCode() == file_code and el_file.exists():
+      if el_file.getCode() == file_code and self.ts.fileExists(el_file):
         single_file = el_file
     if single_file is not None:
       # open file
-      application = Popen(["xdg-open", single_file.getFilepath()])
+      application = Popen(["xdg-open", self.ts.getFilePath(single_file)])
   
   def openFolder(self, widget, data):
     # get selected files
@@ -592,13 +592,13 @@ class Browser(BasicInterface):
       file_code = self.files_store[ipath][0]
       #single_file = None
       for el_file in self.files:
-        if el_file.getCode() == file_code and el_file.exists():
+        if el_file.getCode() == file_code and self.ts.fileExists(el_file):
           files.append(el_file)
     if len(files) > 0:
       single_file = files[0]
       if single_file is not None:
         # open folder
-        application = Popen(["xdg-open", single_file.getLocation()])
+        application = Popen(["xdg-open", self.ts.getFileLocation(single_file)])
   
   #################
   ## Remove File ##
@@ -626,8 +626,8 @@ class Browser(BasicInterface):
     for single_file in files:
       self.log.info("removeFilesReal == removing file: " + single_file.getName())
       self.removeThumbnail(single_file)
-      self.tm.deleteFile(single_file, commit=False)
-    self.tm.commit()
+      self.db.deleteFile(single_file, commit=False)
+    self.db.commit()
     # update the main window
     self.reloadMainWindow()
     return True
@@ -645,13 +645,13 @@ class Browser(BasicInterface):
     if name_contains == '':
       name_contains = None
     # search files
-    self.files = self.tm.getFilesWithTags(self.used_tags, self.use_magnitude, name_contains=name_contains)
+    self.files = self.db.getFilesWithTags(self.used_tags, self.use_magnitude, name_contains=name_contains)
     self.updateFilesStore()
     # update the available tags
     self.updateAvailableTags()
-    self.updateAvailableMetaTags()
+    self.updateAvailableCategories()
     # update the interface
-    self.updateMetaSelector()
+    self.updateCategorySelector()
     self.updateUsedTagsView()
     self.updateFilesView()
 
@@ -666,7 +666,7 @@ class Browser(BasicInterface):
   def getFilePixbuf(self, single_file):
     pixbuf = None
     theme = Gtk.IconTheme.get_default()
-    if not single_file.exists():
+    if not self.ts.fileExists(single_file):
       # missing file image
       pixbuf = theme.load_icon(Gtk.STOCK_MISSING_IMAGE, ICON_SIZE, 0)
       pass
@@ -692,7 +692,7 @@ class Browser(BasicInterface):
     return pixbuf
   
   def createThumbnail(self, single_file, thumb_file):
-    if not single_file.exists():
+    if not self.ts.fileExists(single_file):
       return False
     else:
       if single_file.mime in VIDEO_MIMES:
@@ -703,13 +703,13 @@ class Browser(BasicInterface):
         return False
   
   def createVideoThumbnail(self, single_file, thumb_file):
-    args = ["ffmpegthumbnailer", "-i", single_file.getFilepath(), "-o", thumb_file, "-s", str(ICON_SIZE*2) ]
+    args = ["ffmpegthumbnailer", "-i", self.ts.getFilePath(single_file), "-o", thumb_file, "-s", str(ICON_SIZE*2) ]
     video_thumbnail_process = Popen(args)
     self.require_files_view_deferred_update = True
   
   def createImageThumbnail(self, single_file, thumb_file):
     icon_format = str(ICON_SIZE*2) + "x" + str(ICON_SIZE*2)
-    args = ["convert", single_file.getFilepath() + "[0]", "-thumbnail", icon_format, thumb_file]
+    args = ["convert", self.ts.getFilePath(single_file) + "[0]", "-thumbnail", icon_format, thumb_file]
     image_thumbnail_process = Popen(args)
     self.require_files_view_deferred_update = True
   
@@ -776,18 +776,18 @@ class Browser(BasicInterface):
       # update options file
       new_root = dialog.get_filename()
       new_root = os.path.abspath(new_root)
-      self.tm.config["root"] = new_root
-      self.tm.saveConfig()
-      self.root = self.tm.config["root"]
+      self.ts.config["root"] = new_root
+      self.ts.saveConfig()
+      self.root = self.ts.config["root"]
       label = self.builder.get_object('SettingsRootLabel')
       label.set_text("Files root:" + new_root)
     dialog.destroy()
   
   def settingsChangeMagnitude(self, widget):
     value = widget.get_active()
-    self.tm.config['use_magnitude'] = value
-    self.tm.saveConfig()
-    self.use_magnitude = self.tm.config['use_magnitude']
+    self.ts.config['use_magnitude'] = value
+    self.ts.saveConfig()
+    self.use_magnitude = self.ts.config['use_magnitude']
   
   def destroyWindow(self, widget, window):
     window.destroy()
@@ -796,10 +796,10 @@ class Browser(BasicInterface):
   ## Additional Windows ##
   ########################
   def showTagEditor(self, *args):
-    self.tm.openTagEditor()
+    self.ts.openTagEditor()
   
   def openSearchMissingWindow(self, widget=None, data=None):
-    self.tm.openSearchMissing()
+    self.ts.openSearchMissing()
   
   def createTagFileWindow(self, widget, data):
     # get selected files
@@ -810,10 +810,10 @@ class Browser(BasicInterface):
       file_code = self.files_store[ipath][0]
       #single_file = None
       for el_file in self.files:
-        if el_file.getCode() == file_code and el_file.exists():
+        if el_file.getCode() == file_code and self.ts.fileExists(el_file):
           files.append(el_file)
     if len(files) > 0:
-      self.tm.openBrowserTagFile(files)
+      self.ts.openBrowserTagFile(files)
   
   def createConfirmationDialog(self, question, callback_success, callback_failure, callback_data):
     # create dialog

@@ -1,7 +1,25 @@
 #!/usr/bin/env python3
 
 import os
+
+##########
+## Json ##
+##########
+
+try:
+  import simplejson as json
+  from simplejson import loads as json_loads
+  from simplejson import dumps as json_dumps
+except ImportError:
+  import json
+  from json import loads as json_loads
+  from json import dumps as json_dumps
+  
 import json
+
+###############
+## guessMime ##
+###############
 
 from src.Utils.Magic import guessMime
 
@@ -26,12 +44,18 @@ class DBItem():
   
   def setName(self, name):  
     self.name = name
+  
+  def toArray(self):
+    return {'code':  self.getCode(), 'name' : self.getName()}
+  
+  def __int__(self):
+    return int(self.code)
+  
+##############
+## Category ##
+##############
 
-#############
-## MetaTag ##
-#############
-
-class MetaTag(DBItem):
+class Category(DBItem):
   
   def __init__(self, code, name, has_magnitude):
     super().__init__(code, name)
@@ -40,12 +64,17 @@ class MetaTag(DBItem):
   def hasMagnitude(self):
     return self.has_magnitude
   
-  def giveMagnitude(self, magn=True):
-    self.has_magnitude = magn
-
-def createMetaTag(name, has_magnitude):
-  meta = MetaTag(-1, name, has_magnitude)
-  return meta
+  def setMagnitude(self, magnitude=True):
+    self.has_magnitude = magnitude
+  
+  def toArray(self):
+    res = super().toArray()
+    res['has_magnitude'] = self.hasMagnitude()
+    return res
+  
+def createCategory(name, has_magnitude):
+  category = Category(-1, name, has_magnitude)
+  return category
 
 
 #########
@@ -54,18 +83,23 @@ def createMetaTag(name, has_magnitude):
 
 class Tag(DBItem):
   
-  def __init__(self, code, name, meta):
+  def __init__(self, code, name, category):
     super().__init__(code, name)
-    self.meta = meta
+    self.category = category
   
-  def getMetaCode(self):
-    return self.meta
+  def getCategory(self):
+    return self.category
   
-  def setMetaCode(self, code):  
-    self.meta = code
-
-def createTag(name, meta_code):
-  tag = Tag(-1, name, meta_code)
+  def setCategoryCode(self, code):  
+    self.category = code
+  
+  def toArray(self):
+    res = super().toArray()
+    res['category'] = self.getCategory()
+    return res
+  
+def createTag(name, category_code):
+  tag = Tag(-1, name, category_code)
   return tag
 
 
@@ -75,37 +109,41 @@ def createTag(name, meta_code):
 
 class File(DBItem):
   
-  def __init__(self, code, location, name, mime):
+  def __init__(self, code, name, location, mime):
     super().__init__(code, name)
     self.location = location
+    self.path = os.path.join(self.location, self.name)
     self.mime = mime
-  
-  def getMime(self):
-    return self.mime
   
   def getLocation(self):
     return self.location
   
-  def getFilepath(self):
-    return os.path.abspath(os.path.join(self.location, self.name))
+  def getPath(self):
+    return self.path
   
-  def exists(self):
-    return os.path.exists(self.getFilepath())
-
-def loadFile(filepath):
+  def getMime(self):
+    return self.mime
+  
+  def toArray(self):
+    res = super().toArray()
+    res['location'] = self.getLocation()
+    res['mime'] = self.getMime()
+    return res
+  
+def loadFile(filepath, root):
   filepath = os.path.abspath(filepath)
+  if not filepath.startswith(root):
+    # Out of tree file
+    return None
   if not os.path.exists(filepath):
     return None
   code = -1
-  name = os.path.basename(filepath)
-  location = os.path.dirname(filepath)
-  if os.path.isdir(filepath):
-    mime = 'folder'
-  else:
-    mime = guessMime(filepath)
-  new_file = File(code, location, name, mime)
+  mime = guessMime(filepath)
+  relpath = os.path.relpath(filepath, root)
+  location = os.path.dirname(relpath)
+  name = os.path.basename(relpath)
+  new_file = File(code, name, location, mime)
   return new_file
-
 
 ##################
 ## Configurable ##
@@ -114,13 +152,12 @@ def loadFile(filepath):
 class Configurable():
   
   def __init__(self, config_folder):
-    self.config_folder = os.path.abspath(config_folder)
+    self.config_folder = config_folder
     self.setupConfigFolder()
     self.config_file = os.path.join(self.config_folder, 'main.json')
     self.config = self.loadConfig(self.config_file)
-  
-  def getProfileName(self):
-    return os.path.basename(os.path.dirname(self.config_file))
+    if not os.path.exists(self.config_file):
+      self.saveConfig()
   
   def setupConfigFolder(self):
     if not os.path.exists(self.config_folder):
@@ -150,8 +187,7 @@ class Configurable():
     if path is None:
       path = self.config_file
     # save
-    encoder = json.JSONEncoder()
-    data = encoder.encode(config)
+    data = json_dumps(config)
     hand = open(path, 'w')
     hand.write(data)
     hand.close()
@@ -167,11 +203,12 @@ class Configurable():
       tmp.append(line)
     hand.close()
     tmp = ''.join(tmp)
-    # Decode
-    return decoder.decode(tmp)
+    return json_loads(tmp)
   
   def loadDefaultConfig(self):
     config = {}
     return config
 
 
+def getConfigFolder(profile_name):
+  return os.path.join(os.environ['HOME'], ".config/tag-search/" + profile_name)

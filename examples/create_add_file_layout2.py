@@ -14,14 +14,15 @@ profile = args.profile
 config_folder = os.path.join(os.environ['HOME'], ".config/tag-search/" + profile)
 
 ui = TagSearch.start(config_folder)
+db = ui.getDatabase()
 afl = ui.getAddFileLayout()
 afl.clean()
 # UI
-meta_artist = ui.getMetaTagFromName('Content')
-afl.addEntryField('content', meta_artist, label='Content', default='"Unknown"', autocomplete=True, allows_empty=False)
+category_artist = db.getCategoryFromName('Content')
+afl.addEntryField('content', category_artist, label='Content', default='"Unknown"', autocomplete=True, allows_empty=False)
 afl.addSeparator()
-meta_genre = ui.getMetaTagFromName('Type')
-afl.addRadioField('type', meta_genre)
+category_genre = db.getCategoryFromName('Type')
+afl.addRadioField('type', category_genre)
 afl.addSeparator()
 # Destination
 afl.setDestination('#{type} + "/" + #{content} + "/" + #{_filename}')

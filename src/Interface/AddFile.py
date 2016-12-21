@@ -13,8 +13,7 @@ from src.Interface.Utils import BasicInterface
 from src.Utils.AddFileLayout import UI_ENTRY
 from src.Utils.AddFileLayout import UI_SEPARATOR
 from src.Utils.AddFileLayout import UI_TOGGLE
-
-from src.Common import loadFile
+from src.Utils.Magic import guessMime
 
 RE_DEPS = re.compile('#{[_a-z]*}')
 
@@ -60,13 +59,13 @@ class PropertiesManager():
     elif name == '_filename_entry':
       return self.interface.filename_entry.get_text().strip()
     elif name == '_filename':
-      return self.interface.mfile.getName()
+      return self.interface.tfile.getName()
     elif name == '_mime':
-      return self.interface.mfile.getMime()
+      return self.interface.tfile.getMime()
     elif name == '_number_files':
-      if self.interface.mfile.getMime() == 'folder':
+      if self.interface.tfile.getMime() == 'folder':
         # count the elements in the folder
-        path = self.interface.mfile.getFilepath()
+        path = self.tfile.getFilepath()
         return len(os.listdir(path))
       else:
         return 1
@@ -89,13 +88,28 @@ class PropertiesManager():
         res.append(tag.getName())
     return res
 
-
+class SimpleFile():
+  
+  def __init__(self, path):
+    self.path = os.path.abspath(path)
+    self.name = os.path.basename(self.path)
+    self.mime = guessMime(self.path)
+  
+  def getFilepath(self):
+    return self.path
+  
+  def getName(self):
+    return self.name
+  
+  def getMime(self):
+    return self.mime
+  
 class AddFile(BasicInterface):
 
-  def __init__(self, tm, path):
-    super().__init__(tm)
-    self.mfile = loadFile(path)
-    self.layout = self.tm.getAddFileLayout()
+  def __init__(self, ts, path):
+    super().__init__(ts)
+    self.tfile = SimpleFile(path)
+    self.layout = self.ts.getAddFileLayout()
     self.properties = PropertiesManager(self)
     self._loadInterface()
   
@@ -104,11 +118,11 @@ class AddFile(BasicInterface):
     ui_file = os.path.join(UI_FOLDER, 'AddFile.glade')
     self.builder.add_from_file(ui_file)
     self.main_window = self.builder.get_object('AMMainWindow')
-    self.main_window.set_title('Add file to ' + self.tm.getProfileName())
+    self.main_window.set_title('Add file to ' + self.ts.getProfileName())
     filename_label = self.builder.get_object('AMLabelBasename')
-    filename_label.set_text(self.mfile.getName())
+    filename_label.set_text(self.tfile.getName())
     self.filename_entry = self.builder.get_object('AMEntryName')
-    self.filename_entry.set_text(self.mfile.getName())
+    self.filename_entry.set_text(self.tfile.getName())
     self._custom_grid = self.builder.get_object('CustomGrid')
     self._custom_entries = {}
     self._composeInterface()
@@ -158,8 +172,8 @@ class AddFile(BasicInterface):
     field = self.layout.fields[name]
     tags = field.getTags()
     if tags is None:
-      meta = field.getMeta()
-      tags = self.tm.getAllTagsWithMeta(meta)
+      cat = field.getCategory()
+      tags = self.db.getAllTagsWithCategory(cat)
     store = Gtk.ListStore(int, str)
     for tag in tags:
       store.append([tag.getCode(), tag.getName()])
@@ -187,8 +201,8 @@ class AddFile(BasicInterface):
       defaults = []
     tags = field.getTags()
     if tags is None:
-      meta = field.getMeta()
-      tags = self.tm.getAllTagsWithMeta(meta)
+      cat = field.getCategory()
+      tags = self.db.getAllTagsWithCategory(cat)
     base_radio = None
     grid = Gtk.Grid()
     entries = []
@@ -259,7 +273,7 @@ class AddFile(BasicInterface):
   
   def close(self):
     self.main_window.destroy()
-    self.tm.close()
+    self.ts.close()
   
   def addFile(self):
     self.updateDestination()
@@ -267,30 +281,29 @@ class AddFile(BasicInterface):
     if os.path.exists(dest):
       self.showErrorWindow('Destination exists', 'Please select another destination.')
       return True
-    path = self.mfile.getFilepath()
     # Create dest folder
     dest_folder = os.path.dirname(dest)
     if not os.path.exists(dest_folder):
       os.makedirs(dest_folder)
     # Move file
-    shutil.move(path, dest)
+    shutil.move(self.tfile.getFilepath(), dest)
     # Open dest folder
     if os.path.isdir(dest):
       folder = dest
     else:
-      folder = os.path.basename(dest)
+      folder = os.path.dirname(dest)
     self._addFileAndTags(dest)
     p = Popen(['xdg-open', folder])
     # Hide add file (do not close or TagSearch shuts down)
     self.main_window.hide()
     # Open TagFile
-    self.tm.openTagFile(dest)
+    self.ts.openTagFile(dest)
   
   def _addFileAndTags(self, dest):
-    mfile = loadFile(dest)
-    self.tm.addFile(mfile, commit=False)
+    mfile = self.ts.loadFile(dest)
+    self.db.addFile(mfile, commit=False)
     self._addTags(mfile)
-    self.tm.commit()
+    self.db.commit()
   
   def _addTags(self, mfile):
     for name in self._custom_entries:
@@ -304,18 +317,18 @@ class AddFile(BasicInterface):
         if tag_name == '':
           tag = None
         else:
-          tag = self.tm.getTagFromName(tag_name)
+          tag = self.db.getTagFromName(tag_name)
         if tag is None:
-          meta = self.layout.fields[name].getMeta()
-          tag = createTag(tag_name, meta.getCode())
-          self.tm.addTag(tag)
-        self.tm.addTagToFile(tag, mfile, commit=False)
+          cat = self.layout.fields[name].getCategory()
+          tag = createTag(tag_name, cat.getCode())
+          self.db.addTag(tag)
+        self.db.addTagToFile(tag, mfile, commit=False)
       elif etype == UI_TOGGLE:
         lst = self._custom_entries[name]
         for el in lst:
           tag, wd = el
           if wd.get_active():
-            self.tm.addTagToFile(tag, mfile, commit=False)
+            self.db.addTagToFile(tag, mfile, commit=False)
   
   def updateDestination(self):
     dest = self.getDestination()
@@ -331,9 +344,8 @@ class AddFile(BasicInterface):
     return res
   
   def getFullDestination(self):
-    root = self.tm.config['root']
     dest = self.getDestination()
-    return os.path.abspath(os.path.join(root, dest))
+    return self.ts.getCompletePath(dest)
   
 def open(*args, **kwargs):
   af = AddFile(*args, **kwargs)

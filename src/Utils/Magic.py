@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 from mimetypes import guess_extension as guessExtension
 from mimetypes import guess_type
 
@@ -7,6 +9,8 @@ from subprocess import Popen
 from subprocess import PIPE
 
 def guessMime(path):
+  if os.path.isdir(path):
+    return 'folder'
   mime, _ = guess_type(path)
   if mime is None:
     return _guessMimeAlt(path)

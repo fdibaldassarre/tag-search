@@ -14,16 +14,17 @@ profile = args.profile
 config_folder = os.path.join(os.environ['HOME'], ".config/tag-search/" + profile)
 
 ui = TagSearch.start(config_folder)
+db = ui.getDatabase()
 afl = ui.getAddFileLayout()
 afl.clean()
 # UI
-meta_artist = ui.getMetaTagFromName('Artist')
+meta_artist = db.getCategoryFromName('Artist')
 afl.addEntryField('artist', meta_artist, label='Artist', default='"Unknown"', autocomplete=True, allow_empty=False)
 afl.addSeparator()
-meta_genre = ui.getMetaTagFromName('Genre')
+meta_genre = db.getCategoryFromName('Genre')
 afl.addRadioField('genre', meta_genre)
 afl.addSeparator()
-meta_instr = ui.getMetaTagFromName('Instruments')
+meta_instr = db.getCategoryFromName('Instruments')
 afl.addToggleField('instruments', meta_instr, horizontal=False)
 # Destination
 afl.setDestination('#{genre} + "/" + #{artist} + "/" + #{_filename}')

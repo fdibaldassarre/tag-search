@@ -4,6 +4,7 @@ import os
 import argparse
 
 from src import TagSearch
+from src.Common import getConfigFolder
 
 parser = argparse.ArgumentParser( description = 'Add file to database' )
 parser.add_argument('file', help='file to tag', nargs=1)
@@ -14,7 +15,7 @@ filepaths = args.file
 filepath = filepaths[0]
 profile = args.profile
 
-config_folder = os.path.join(os.environ['HOME'], ".config/tag-search/" + profile)
+config_folder = getConfigFolder(profile)
 ui = TagSearch.start(config_folder)
 ui.openAddFile(filepath)
 ui.start()

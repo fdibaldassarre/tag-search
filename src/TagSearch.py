@@ -9,7 +9,7 @@ from gi.repository import Gtk
 from src.Constants import DEBUG
 from src.Utils import PyLog
 from src.Utils import AddFileLayout
-from src.Database import Database
+from src.Profile import Profile
 
 from src.Interface import Browser
 from src.Interface import TagFile
@@ -17,7 +17,7 @@ from src.Interface import AddFile
 from src.Interface import TagEditor
 from src.Interface import SearchMissing
 
-class TagSearch(Database):
+class TagSearch(Profile):
   
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
@@ -30,13 +30,7 @@ class TagSearch(Database):
     # Secondary windows
     self.tag_editor = None
   
-  def loadDefaultConfig(self):
-    config = {}
-    config['root'] = os.path.join(os.environ['HOME'], 'TagSearch/')
-    config['use_magnitude'] = False
-    return config
-  
-  def _setupLogger(self, debug=False):
+  def _setupLogger(self, debug=DEBUG):
     log_folder = os.path.join(self.config_folder, 'logs/')
     self.logger = PyLog.new(log_folder)
     if debug:

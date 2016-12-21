@@ -30,7 +30,7 @@ class SearchMissing(BasicInterface):
   
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self.browser = self.tm.browser
+    self.browser = self.ts.browser
     self._loadInterface()
  
   def _loadInterface(self):
@@ -52,7 +52,7 @@ class SearchMissing(BasicInterface):
   
   def close(self):
     self.main_window.hide()
-    self.tm.closeSecondary(refresh=True)
+    self.ts.closeSecondary(refresh=True)
   
   ## Update interface
   def updateInterface(self):
@@ -69,7 +69,7 @@ class SearchMissing(BasicInterface):
       
   def findMissingFiles(self):
     # get all files
-    all_files = self.tm.getAllFiles()
+    all_files = self.db.getAllFiles()
     # search missing files
     missing_files = {}
     for single_file in all_files:
@@ -179,7 +179,7 @@ class SearchMissing(BasicInterface):
     single_file, replace_entry, grid_widget = data
     replace_path = replace_entry.get_text()
     if os.path.exists(replace_path):
-      self.tm.changeFilePath(single_file, replace_path)
+      self.ts.changeFilePath(single_file, replace_path)
       # destroy widgets
       grid_widget.destroy()
       # remove missing element
@@ -191,7 +191,7 @@ class SearchMissing(BasicInterface):
   def onAcceptRemove(self, widget, data):
     # update database
     single_file, grid_widget = data
-    self.tm.deleteFile(single_file)
+    self.db.deleteFile(single_file)
     # destroy widgets
     grid_widget.destroy()
     # remove missing element

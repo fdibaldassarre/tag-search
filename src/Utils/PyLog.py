@@ -6,7 +6,7 @@ from datetime import datetime
 
 import logging
 
-## PyLog3: simple logger
+## PyLog: simple logger
 
 BACKUP_LOGS = 2
 

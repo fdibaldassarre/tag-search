@@ -8,7 +8,7 @@
       <column type="gint"/>
       <!-- column-name Name -->
       <column type="gchararray"/>
-      <!-- column-name Meta -->
+      <!-- column-name Category -->
       <column type="gint"/>
     </columns>
   </object>
@@ -221,7 +221,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <signal name="clicked" handler="tfAddMetaTag" swapped="no"/>
+                <signal name="clicked" handler="tfAddCategory" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">3</property>
