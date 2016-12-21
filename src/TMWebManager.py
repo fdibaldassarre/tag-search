@@ -8,17 +8,20 @@ class TMWebManager(Profile):
   
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    # Set archive folder
-    self.archive_folder = os.path.join(self.config_folder, 'Archive')
     # Setup web folder
     self.web_folder = 'archive/' + self.getProfileName()
+    self.web_thumbs_folder = 'thumbs/' + self.getProfileName()
   
   def getFileHref(self, tfile):
     return os.path.join(self.web_folder, tfile.getPath())
   
+  def getFileThumb(self, tfile):
+    return os.path.join(self.web_thumbs_folder, str(tfile.getCode()) + '.png')
+    
   def convertFileToDict(self, tfile):
     res = tfile.toArray()
     res['href'] = self.getFileHref(tfile)
+    res['thumb'] = self.getFileThumb(tfile)
     return res
   
   def getTags(self):
@@ -68,7 +71,7 @@ class TMWebManager(Profile):
     return True
   
   def toggleTagForFile(self, tcode, fcode):
-    tags = self.db.getTagsOfFile(fcode).keys()
+    manitude, tags = self.db.getTagsOfFile(fcode)
     tags_codes = list( map(int, tags) )
     if int(tcode) in tags_codes:
       return self.removeTagFromFile(tcode, fcode)

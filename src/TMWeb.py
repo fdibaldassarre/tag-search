@@ -56,7 +56,10 @@ class TMWeb():
   
   def startManager(self, profile):
     config_folder = getConfigFolder(profile)
-    self.manager = TMWebManager.start(config_folder)
+    if not os.path.exists(config_folder):
+      self.manager = None
+    else:
+      self.manager = TMWebManager.start(config_folder)
   
   def stopManager(self):
     self.manager.close()
@@ -82,7 +85,9 @@ class TMWeb():
     profile = self.getProfile()
     if profile is None or operation is None:
       return RESULT_ERROR
-    self.startManager(profile)
+    self.startManager(profile):
+    if self.manager is None:
+      return RESULT_ERROR
     result = self.executeOperation(operation)
     self.stopManager()
     return result
