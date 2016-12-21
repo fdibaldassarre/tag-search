@@ -23,6 +23,9 @@ class Profile(Configurable):
     config['use_magnitude'] = False
     return config
   
+  def close(self):
+    self.db.close()
+  
   def getProfileName(self):
     return os.path.basename(self.config_folder)
   

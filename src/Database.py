@@ -40,7 +40,7 @@ class Database():
   
   def commit(self):
     self._conn.commit()
-    
+  
   ## Database
   def _loadDatabase(self):
     if not os.path.exists(self.db_path):
@@ -52,6 +52,10 @@ class Database():
     # Load db
     self._conn = sqlite3.connect(self.db_path)
     self.db = self._conn.cursor()
+  
+  def close(self):
+    self.db.close()
+    self._conn = None
     
   ## Get
   def getFilesWithTags(self, tags, use_magnitude=False, limit=None, name_contains=None):
@@ -168,8 +172,8 @@ class Database():
     for i in range(len(all_data)):
       tag = tags[i]
       magnitude = all_data[i][3]
-      result[tag.getCode()] = magnitude
-    return result
+      result[int(tag)] = magnitude
+    return result, tags
   
   def getCommonTags(self, files):
     if len(files) == 0:
@@ -307,6 +311,15 @@ class Database():
     self.db.execute(query, (mime, int(single_file)))
     
   ## Search file
+  def getFileByCode(self, fcode):
+    query = 'SELECT Code, Location, Name, Mime FROM Files WHERE Code = ?'
+    self.db.execute(query, (fcode, ))
+    data = self.db.fetchone()
+    if data is None:
+      return None
+    else:
+      return self.getFileFromDBData(data)
+  
   def getFileByRelativePath(self, path):
     location = os.path.dirname(path)
     name = os.path.basename(path)

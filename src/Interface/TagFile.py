@@ -97,10 +97,10 @@ class TagFile(BasicInterface):
     for single_file in self.files:
       single_item_tags = {}
       # set active tags
-      tags_mag = self.db.getTagsOfFile(single_file)
+      magn, _ = self.db.getTagsOfFile(single_file)
       for tag in self.tags:
-        if tag.code in tags_mag:
-          single_item_tags[tag] = tags_mag[tag.getCode()]
+        if tag.getCode() in magn.keys():
+          single_item_tags[tag] = magn[tag.getCode()]
       self.items_tags[single_file] = single_item_tags
   
   @ignoreSignals
