@@ -495,10 +495,10 @@ class Browser(BasicInterface):
     self.files_results_limit = RESULT_LIMIT
     # rewrite the used tags list
     self.used_tags.clear()
-    pseudo_tag = PseudoTag("UNTAGGED")
+    pseudo_tag = PseudoTag("Untagged files")
     self.used_tags.append(pseudo_tag)
     # search files
-    self.files = self.db.getFilesWithNoTag()
+    self.files = self.db.getFilesWithNoTags()
     self.updateFilesStore()
     # update interface
     # update the available tags
