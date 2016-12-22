@@ -8,7 +8,7 @@ from flask import request
 from src import TMWeb
 
 parser = argparse.ArgumentParser(description='Tag Search Server')
-parser.add_argument('--port', help='port to use', default=44660)
+parser.add_argument('--port', type=int, help='port to use', default=44660)
 parser.add_argument('--profile', help='profile to use', default='default')
 parser.add_argument('--debug', action='store_true', help='debug mode')
 
