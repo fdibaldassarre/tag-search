@@ -73,7 +73,7 @@ class SearchMissing(BasicInterface):
     # search missing files
     missing_files = {}
     for single_file in all_files:
-      if not single_file.exists():
+      if not self.ts.fileExists(single_file):
         missing_files[single_file] = None
     return missing_files
   
@@ -93,12 +93,12 @@ class SearchMissing(BasicInterface):
       file_grid.set_row_spacing(3)
       #file_grid.set_column_spacing(5)
       file_grid.set_hexpand(True)
-      name_label = Gtk.Label(single_file.getFilepath())
+      name_label = Gtk.Label(self.ts.getFilePath(single_file))
       name_label.set_alignment(0, 0.5)
       name_label.set_hexpand(True)
       #name_label.set_selectable(True)
       replace_entry = Gtk.Entry()
-      replace_entry.set_text(single_file.getFilepath())
+      replace_entry.set_text(self.ts.getFilePath(single_file))
       confirm_button = Gtk.Button('Replace')
       confirm_button.connect('clicked', self.shandler.onAcceptReplace, [single_file, replace_entry, file_grid])
       remove_button = Gtk.Button('Delete')
@@ -148,7 +148,7 @@ class SearchMissing(BasicInterface):
     search_list = {}
     for single_file in self.missing_files:
       search_list[single_file.getName().lower()] = single_file
-    for base, dirs, files in os.walk(root):
+    for base, dirs, files in os.walk(root): # add a followlinks=True?
       # check file names
       for filename in files:
         # check file

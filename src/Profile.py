@@ -51,9 +51,15 @@ class Profile(Configurable):
   def fileExists(self, tfile):
     return os.path.exists(self.getFilePath(tfile))
   
-  def changeFilePath(tfile, path):
-    pass
-    # TODO
+  def changeFilePath(self, tfile, path):
+    path = os.path.abspath(path)
+    if not path.startswith(self.config['root']):
+      # Out of tree file
+      return None
+    relpath = os.path.relpath(path, self.config['root'])
+    location = os.path.dirname(relpath)
+    name = os.path.basename(relpath)
+    self.db.changeFilePath(tfile, location, name)
 
 def start(*args, **kwargs):
   profile = Profile(*args, **kwargs)
