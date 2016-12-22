@@ -65,7 +65,7 @@ class PropertiesManager():
     elif name == '_number_files':
       if self.interface.tfile.getMime() == 'folder':
         # count the elements in the folder
-        path = self.tfile.getFilepath()
+        path = self.interface.tfile.getFilepath()
         return len(os.listdir(path))
       else:
         return 1
