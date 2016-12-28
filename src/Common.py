@@ -159,6 +159,9 @@ class Configurable():
     if not os.path.exists(self.config_file):
       self.saveConfig()
   
+  def getConfigFolder(self):
+    return self.config_folder
+  
   def setupConfigFolder(self):
     if not os.path.exists(self.config_folder):
       os.makedirs(self.config_folder)

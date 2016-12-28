@@ -20,15 +20,10 @@ from src.Interface.Utils import BasicInterface
 from src.Interface.Utils import acceptInterfaceSignals
 from src.Interface.Utils import ignoreSignals
 
-VIDEO_MIMES = ["video/x-msvideo", "video/x-matroska", "video/mp4", "video/x-ogm+ogg"]
-IMAGE_MIMES = ["image/gif", "image/png", "image/jpeg", "application/pdf", "image/vnd.djvu"]
-
 RESULT_LIMIT = 20
 ICON_SIZE = 64
 
 LABEL_LIMIT = 20
-
-THUMBNAILS_EXTENSION = '.png'
 
 #############
 ### Tools ###
@@ -103,6 +98,9 @@ class SHandler():
   
   def settingsChangeMagnitude(self, *args):
     self.interface.settingsChangeMagnitude(*args)
+  
+  def settingsChangeFolderPreview(self, *args):
+    self.interface.settingsChangeFolderPreview(*args)
   
 ##################
 ## Browser Menu ##
@@ -197,9 +195,6 @@ class Browser(BasicInterface):
   
   def _setup(self):
     self.profile = self.ts.getProfileName()
-    self.thumbnails_folder = os.path.join(self.ts.config_folder, "thumbnails/")
-    if not os.path.exists(self.thumbnails_folder):
-      os.mkdir(self.thumbnails_folder)
     # Inizialize variables
     self.initializeVariables()
   
@@ -318,6 +313,7 @@ class Browser(BasicInterface):
   def reloadConfig(self):
     self.root = self.ts.config['root']
     self.use_magnitude = self.ts.config['use_magnitude']
+    self.show_folder_preview = self.ts.config['show_folder_preview']
   
   def _importUsedTags(self, old_used_tags):
     for tag in old_used_tags:
@@ -625,7 +621,7 @@ class Browser(BasicInterface):
     # remove files
     for single_file in files:
       self.log.info("removeFilesReal == removing file: " + single_file.getName())
-      self.removeThumbnail(single_file)
+      self.ts.thumb_manager.removeThumbnail(single_file)
       self.db.deleteFile(single_file, commit=False)
     self.db.commit()
     # update the main window
@@ -669,18 +665,15 @@ class Browser(BasicInterface):
     if not self.ts.fileExists(single_file):
       # missing file image
       pixbuf = theme.load_icon(Gtk.STOCK_MISSING_IMAGE, ICON_SIZE, 0)
-      pass
-    elif single_file.getMime() in VIDEO_MIMES or single_file.getMime() in IMAGE_MIMES:
-      thumb_file = self.getThumbFile(single_file)
-      if not os.path.exists(thumb_file):
-        self.createThumbnail(single_file, thumb_file)
+      return pixbuf
+    # Check thumbnail
+    thumb_file = self.ts.thumb_manager.getThumbnail(single_file, ICON_SIZE*2)
+    if thumb_file is not None:
       if os.path.exists(thumb_file):
-        try:
-          pixbuf = Pixbuf.new_from_file(thumb_file)
-        except Exception:
-          # todo: insert this thumb in fails
-          pixbuf = None
-          pass
+        pixbuf = Pixbuf.new_from_file(thumb_file)
+      else:
+        # defer update if thumb creator is still working...
+        self.require_files_view_deferred_update = True
     if pixbuf is None:
       # try to use the default icon if possible
       # use a generic one otherwise
@@ -690,36 +683,6 @@ class Browser(BasicInterface):
       except Exception:
         pixbuf = theme.load_icon(Gtk.STOCK_FILE, ICON_SIZE, 0)
     return pixbuf
-  
-  def createThumbnail(self, single_file, thumb_file):
-    if not self.ts.fileExists(single_file):
-      return False
-    else:
-      if single_file.mime in VIDEO_MIMES:
-        self.createVideoThumbnail(single_file, thumb_file)
-      elif single_file.mime in IMAGE_MIMES:
-        self.createImageThumbnail(single_file, thumb_file)
-      else:
-        return False
-  
-  def createVideoThumbnail(self, single_file, thumb_file):
-    args = ["ffmpegthumbnailer", "-i", self.ts.getFilePath(single_file), "-o", thumb_file, "-s", str(ICON_SIZE*2) ]
-    video_thumbnail_process = Popen(args)
-    self.require_files_view_deferred_update = True
-  
-  def createImageThumbnail(self, single_file, thumb_file):
-    icon_format = str(ICON_SIZE*2) + "x" + str(ICON_SIZE*2)
-    args = ["convert", self.ts.getFilePath(single_file) + "[0]", "-thumbnail", icon_format, thumb_file]
-    image_thumbnail_process = Popen(args)
-    self.require_files_view_deferred_update = True
-  
-  def removeThumbnail(self, single_file):
-    thumb_file = self.getThumbFile(single_file)
-    if os.path.exists(thumb_file):
-      os.remove(thumb_file)
-  
-  def getThumbFile(self, single_file):
-    return os.path.join(self.thumbnails_folder, str(single_file.getCode()) + THUMBNAILS_EXTENSION)
   
   def getFileGtkIcon(self, single_file, theme):  
     mime = single_file.getMime()
@@ -763,6 +726,9 @@ class Browser(BasicInterface):
     # update magnitude
     magnitude_check = self.builder.get_object('SettingsUseMagnitude')
     magnitude_check.set_active(self.use_magnitude)
+    # show folder preview
+    magnitude_check = self.builder.get_object('SettingsShowFolderPreview')
+    magnitude_check.set_active(self.show_folder_preview)
     self.settings_window.show()
   
   def settingsClose(self):
@@ -788,6 +754,12 @@ class Browser(BasicInterface):
     self.ts.config['use_magnitude'] = value
     self.ts.saveConfig()
     self.use_magnitude = self.ts.config['use_magnitude']
+  
+  def settingsChangeFolderPreview(self, widget):
+    value = widget.get_active()
+    self.ts.config['show_folder_preview'] = value
+    self.ts.saveConfig()
+    self.use_magnitude = self.ts.config['show_folder_preview']
   
   def destroyWindow(self, widget, window):
     window.destroy()

@@ -4,7 +4,8 @@ import os
 
 from src.Common import loadFile
 from src.Common import Configurable
-from src.Database import Database
+from src import Database
+from src import ThumbManager
 
 ################
 ## TSProfile ###
@@ -15,12 +16,14 @@ class Profile(Configurable):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     db_path = os.path.join(self.config_folder, 'tf.db')
-    self.db = Database(db_path)
+    self.db = Database.start(db_path)
+    self.thumb_manager = ThumbManager.start(self)
   
   def loadDefaultConfig(self):
     config = {}
     config['root'] = os.path.join(os.environ['HOME'], 'TagSearch/')
     config['use_magnitude'] = False
+    config['show_folder_preview'] = False
     return config
   
   def close(self):
