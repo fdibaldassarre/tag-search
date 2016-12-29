@@ -16,7 +16,7 @@ class TMWebManager(Profile):
     return os.path.join(self.web_folder, tfile.getPath())
   
   def getFileThumb(self, tfile):
-    return os.path.join(self.web_thumbs_folder, str(tfile.getCode()) + '.png')
+    return os.path.join(self.web_thumbs_folder, str(tfile.getCode()) + '.' + self.config['thumb_filetype'])
     
   def convertFileToDict(self, tfile):
     res = tfile.toArray()

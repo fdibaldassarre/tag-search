@@ -15,8 +15,6 @@ from src.Utils.Magic import guessMime
 
 # Create/view file preview
 
-THUMBNAILS_EXTENSION = '.jpg'
-
 VIDEO_MIMES = ["video/x-msvideo", "video/x-matroska", "video/mp4", "video/x-ogm+ogg"]
 IMAGE_MIMES = ["image/gif", "image/png", "image/jpeg", "application/pdf", "image/vnd.djvu"]
 
@@ -26,6 +24,7 @@ class ThumbManager():
     self.profile = profile
     self.thumbnails_folder = os.path.join(self.profile.getConfigFolder(), "thumbnails/")
     self.thumbnails_fail_folder = os.path.join(self.profile.getConfigFolder(), "thumbnails_fail/")
+    self.thumb_extension = '.' + self.profile.config['thumb_filetype']
   
   def getThumbnail(self, tfile, icon_size):
     path = self.getThumbnailPath(tfile, icon_size)
@@ -39,11 +38,11 @@ class ThumbManager():
     
   def getThumbnailPath(self, tfile, icon_size):
     icon_folder = os.path.join(self.thumbnails_folder, str(icon_size))
-    return os.path.join(icon_folder, str(tfile.getCode()) + THUMBNAILS_EXTENSION)
+    return os.path.join(icon_folder, str(tfile.getCode()) + self.thumb_extension)
   
   def getThumbnailFailPath(self, tfile, icon_size):
     icon_folder = os.path.join(self.thumbnails_fail_folder, str(icon_size))
-    return os.path.join(icon_folder, str(tfile.getCode()) + THUMBNAILS_EXTENSION)
+    return os.path.join(icon_folder, str(tfile.getCode()) + self.thumb_extension)
   
   def removeThumbnail(self, tfile):
     thumb_file = self.getThumbnailPath(tfile)

@@ -24,6 +24,7 @@ class Profile(Configurable):
     config['root'] = os.path.join(os.environ['HOME'], 'TagSearch/')
     config['use_magnitude'] = False
     config['show_folder_preview'] = False
+    config['thumb_filetype'] = 'png'
     return config
   
   def close(self):
