@@ -38,11 +38,9 @@ class ThumbManager():
     thumb_type = self.getThumbnailType(tfile)
     if thumb_type is None:
       return None
-    if not os.path.exists(path) and not os.path.exists(fail_path):
+    elif not os.path.exists(path) and not os.path.exists(fail_path):
       self.createThumbnail(tfile, path, icon_size, thumb_type=thumb_type)
       return RESULT_WORKING
-    if tfile.getMime() == 'folder' and self.profile.config['show_folder_preview'] == False:
-      return None
     else:
       return path
     
@@ -85,7 +83,7 @@ class ThumbManager():
         self.createVideoThumbnail(path, thumb_file, icon_size)
       elif thumb_type == THUMB_IMAGE:
         self.createImageThumbnail(path, thumb_file, icon_size)
-      elif thumb_type == THUMB_FOLDER and self.profile.config['show_folder_preview']:
+      elif thumb_type == THUMB_FOLDER:
         self.createFolderThumbnail(path, thumb_file, icon_size)
       else:
         return False
