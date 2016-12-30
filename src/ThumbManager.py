@@ -15,8 +15,14 @@ from src.Utils.Magic import guessMime
 
 # Create/view file preview
 
-VIDEO_MIMES = ["video/x-msvideo", "video/x-matroska", "video/mp4", "video/x-ogm+ogg"]
+VIDEO_MIMES = ["video/x-msvideo", "video/x-matroska", "video/mp4", "video/x-ogm+ogg", "video/x-ms-wmv"]
 IMAGE_MIMES = ["image/gif", "image/png", "image/jpeg", "application/pdf", "image/vnd.djvu"]
+
+THUMB_VIDEO = 0
+THUMB_IMAGE = 1
+THUMB_FOLDER = 2
+
+RESULT_WORKING = 0
 
 class ThumbManager():
 
@@ -29,8 +35,12 @@ class ThumbManager():
   def getThumbnail(self, tfile, icon_size):
     path = self.getThumbnailPath(tfile, icon_size)
     fail_path = self.getThumbnailFailPath(tfile, icon_size)
+    thumb_type = self.getThumbnailType(tfile)
+    if thumb_type is None:
+      return None
     if not os.path.exists(path) and not os.path.exists(fail_path):
-      self.createThumbnail(tfile, path, icon_size)
+      self.createThumbnail(tfile, path, icon_size, thumb_type=thumb_type)
+      return RESULT_WORKING
     if tfile.getMime() == 'folder' and self.profile.config['show_folder_preview'] == False:
       return None
     else:
@@ -52,7 +62,16 @@ class ThumbManager():
     if os.path.exists(thumb_fail_file):
       os.remove(thumb_fail_file)
   
-  def createThumbnail(self, tfile, thumb_file, icon_size):
+  def getThumbnailType(self, tfile):
+    if tfile.getMime() == 'folder':
+      return THUMB_FOLDER
+    elif tfile.getMime() in VIDEO_MIMES:
+      return THUMB_VIDEO
+    elif tfile.getMime() in IMAGE_MIMES:
+      return THUMB_IMAGE
+    return None
+  
+  def createThumbnail(self, tfile, thumb_file, icon_size, thumb_type=None):
     thumb_folder = os.path.dirname(thumb_file)
     if not os.path.isdir(thumb_folder):
       os.makedirs(thumb_folder)
@@ -60,11 +79,13 @@ class ThumbManager():
       return False
     else:
       path = self.profile.getFilePath(tfile)
-      if tfile.getMime() in VIDEO_MIMES:
+      if thumb_type is None:
+        thumb_type = self.getThumbnailType(tfile)
+      if thumb_type == THUMB_VIDEO:
         self.createVideoThumbnail(path, thumb_file, icon_size)
-      elif tfile.getMime() in IMAGE_MIMES:
+      elif thumb_type == THUMB_IMAGE:
         self.createImageThumbnail(path, thumb_file, icon_size)
-      elif tfile.getMime() == 'folder' and self.profile.config['show_folder_preview']:
+      elif thumb_type == THUMB_FOLDER and self.profile.config['show_folder_preview']:
         self.createFolderThumbnail(path, thumb_file, icon_size)
       else:
         return False
@@ -80,16 +101,20 @@ class ThumbManager():
   
   def createFolderThumbnail(self, path, thumb_file, icon_size):
     fnames = self._getFilesInFolder(path)
+    thumb_created = False
     for fname in fnames:
       fpath = os.path.join(path, fname)
       if not os.path.isdir(fpath):
         mime = guessMime(fpath)
         if mime in VIDEO_MIMES:
           self.createVideoThumbnail(fpath, thumb_file, icon_size)
+          thumb_created = True
           break
         elif mime in IMAGE_MIMES:
           self.createImageThumbnail(fpath, thumb_file, icon_size)
+          thumb_created = True
           break
+    return thumb_created
   
   def _getFilesInFolder(self, location):
     result = []

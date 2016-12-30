@@ -667,13 +667,19 @@ class Browser(BasicInterface):
       pixbuf = theme.load_icon(Gtk.STOCK_MISSING_IMAGE, ICON_SIZE, 0)
       return pixbuf
     # Check thumbnail
-    thumb_file = self.ts.thumb_manager.getThumbnail(single_file, ICON_SIZE*2)
+    thumb_file = None
+    if single_file.getMime() != 'folder' or self.ts.config['show_folder_preview']:
+      thumb_file = self.ts.thumb_manager.getThumbnail(single_file, ICON_SIZE*2)
     if thumb_file is not None:
-      if os.path.exists(thumb_file):
-        pixbuf = Pixbuf.new_from_file(thumb_file)
-      else:
+      if thumb_file == 0: # Thumb is a work in progress
         # defer update if thumb creator is still working...
         self.require_files_view_deferred_update = True
+      else:
+        # Try loading the thumbnail
+        try:
+          pixbuf = Pixbuf.new_from_file(thumb_file)
+        except Exception:
+          pixbuf = None
     if pixbuf is None:
       # try to use the default icon if possible
       # use a generic one otherwise
@@ -711,7 +717,7 @@ class Browser(BasicInterface):
   
   def triggerFilesViewUpdate(self, trigger):
     if trigger: 
-      timeout_id = GObject.timeout_add(500, self.triggerFilesViewUpdate, False)
+      timeout_id = GObject.timeout_add(1500, self.triggerFilesViewUpdate, False)
     else:
       self.updateFilesStore()
       self.updateFilesView()
