@@ -61,7 +61,7 @@ class ThumbManager():
       os.remove(thumb_fail_file)
   
   def getThumbnailType(self, tfile):
-    if tfile.getMime() == 'folder':
+    if tfile.getMime() == 'inode/directory':
       return THUMB_FOLDER
     elif tfile.getMime() in VIDEO_MIMES:
       return THUMB_VIDEO

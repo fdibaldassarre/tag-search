@@ -668,7 +668,7 @@ class Browser(BasicInterface):
       return pixbuf
     # Check thumbnail
     thumb_file = None
-    if single_file.getMime() != 'folder' or self.ts.config['show_folder_preview']:
+    if single_file.getMime() != 'inode/directory' or self.ts.config['show_folder_preview']:
       thumb_file = self.ts.thumb_manager.getThumbnail(single_file, ICON_SIZE*2)
     if thumb_file is not None:
       if thumb_file == 0: # Thumb is a work in progress
@@ -692,28 +692,25 @@ class Browser(BasicInterface):
   
   def getFileGtkIcon(self, single_file, theme):  
     mime = single_file.getMime()
-    if mime == "folder":
-      return 'folder'
-    else:
-      # Mime icon
-      gtk_icon = mime.replace('/','-')
-      if theme.has_icon(gtk_icon):
-        return gtk_icon
-      # Gnome mime
-      gtk_icon = 'gnome-mime-' + mime.replace('/','-')
-      if theme.has_icon(gtk_icon):
-        return gtk_icon
-      # Generic mime
-      tmp = mime.split('/')
-      gmime = tmp[0]
-      gtk_icon = gmime
-      if theme.has_icon(gtk_icon):
-        return gtk_icon
-      # Generic gnome mime
-      gtk_icon = 'gnome-mime-' + gmime
-      if theme.has_icon(gtk_icon):
-        return gtk_icon
-      return Gtk.STOCK_FILE
+    # Mime icon
+    gtk_icon = mime.replace('/','-')
+    if theme.has_icon(gtk_icon):
+      return gtk_icon
+    # Gnome mime icon
+    gtk_icon = 'gnome-mime-' + mime.replace('/','-')
+    if theme.has_icon(gtk_icon):
+      return gtk_icon
+    # Generic mime
+    gmime = mime.split('/')[0]
+    # Generic mime icon
+    gtk_icon = gmime
+    if theme.has_icon(gtk_icon):
+      return gtk_icon
+    # Generic gnome mime icon
+    gtk_icon = 'gnome-mime-' + gmime
+    if theme.has_icon(gtk_icon):
+      return gtk_icon
+    return Gtk.STOCK_FILE
   
   def triggerFilesViewUpdate(self, trigger):
     if trigger: 

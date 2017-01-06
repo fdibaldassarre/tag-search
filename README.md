@@ -6,6 +6,7 @@ Simple GTK application to tag and browse files.
 
 - Python3
 - Gtk
+- python3-magic
 
 ## Browser
 
@@ -22,6 +23,8 @@ To tag a file use
 ```sh
 ./tag-file.py path/to/file
 ```
+
+Note: You cannot tag a file outside your root folder.
 
 ![input](https://raw.githubusercontent.com/fdibaldassarre/tag-search/master/pictures/tag.jpg)
 

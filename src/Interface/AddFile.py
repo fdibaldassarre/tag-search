@@ -63,7 +63,7 @@ class PropertiesManager():
     elif name == '_mime':
       return self.interface.tfile.getMime()
     elif name == '_number_files':
-      if self.interface.tfile.getMime() == 'folder':
+      if self.interface.tfile.getMime() == 'inode/directory':
         # count the elements in the folder
         path = self.interface.tfile.getFilepath()
         return len(os.listdir(path))
